@@ -7,7 +7,6 @@ using CommunityToolkit.Mvvm.Input;
 using Giteasy.Helpers;
 using Giteasy.Models;
 using Giteasy.Services;
-using LibGit2Sharp;
 using Microsoft.UI.Xaml;
 
 namespace Giteasy.ViewModels;
@@ -137,7 +136,7 @@ public partial class BranchViewModel : ObservableObject
         {
             var branchName = SelectedBranch.Name;
             var result = await Task.Run(() => _git.Merge(branchName));
-            if (result.Status == MergeStatus.Conflicts)
+            if (result == "Conflicts")
             {
                 await DialogHelper.ShowErrorAsync(_xamlRoot, "競合が発生しました",
                     "マージ中に競合が発生しました。\nステータス画面で競合ファイルを確認してください。");

@@ -2,15 +2,10 @@
 <Window
     x:Class="Giteasy.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Giteasy"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    Title="GitEasy">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Window.SystemBackdrop>
-        <MicaBackdrop />
+        <MicaBackdrop/>
     </Window.SystemBackdrop>
 
     <Grid>
@@ -21,22 +16,17 @@
         </Grid.RowDefinitions>
 
         <!-- カスタムタイトルバー -->
-        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48" Padding="16,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
-                <FontIcon Glyph="&#xE943;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                <TextBlock Text="GitEasy" Style="{StaticResource CaptionTextBlockStyle}" 
-                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Padding="12,0">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE943;" FontSize="14"
+                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock Text="GitEasy" FontSize="12" FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
 
-        <!-- メインコンテンツ: NavigationView + Frame -->
-        <NavigationView
-            x:Name="NavView"
-            Grid.Row="1"
+        <!-- NavigationView + Content -->
+        <NavigationView x:Name="NavView" Grid.Row="1"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             PaneDisplayMode="Left"
@@ -44,7 +34,18 @@
             SelectionChanged="NavView_SelectionChanged"
             Loaded="NavView_Loaded">
 
+            <!-- ダークテーマのコンテンツ背景をMica/Acrylicが透過するように -->
+            <NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent"/>
+                <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent"/>
+            </NavigationView.Resources>
+
             <NavigationView.MenuItems>
+                <NavigationViewItem Content="プロジェクト" Tag="Projects">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="セットアップ" Tag="RepoSetup">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE710;"/>
@@ -71,36 +72,47 @@
                         <FontIcon Glyph="&#xE81C;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="ログ" Tag="Log">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE756;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="設定" Tag="Settings" Icon="Setting"/>
+                <NavigationViewItem Content="設定" Tag="Settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" Padding="24,16,24,24"/>
+            <!-- コンテンツ -->
+            <ScrollViewer>
+                <Frame x:Name="ContentFrame" Padding="24,20,24,24"/>
+            </ScrollViewer>
         </NavigationView>
 
-        <!-- ステータスバー (現在のブランチ表示) -->
-        <Grid Grid.Row="2" Padding="16,6" 
-              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        <!-- ステータスバー -->
+        <Grid Grid.Row="2" Padding="16,6"
+              Background="{ThemeResource LayerFillColorAltBrush}"
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
               BorderThickness="0,1,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                <FontIcon Glyph="&#xE8A5;" FontSize="12" 
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <FontIcon Glyph="&#xE8A5;" FontSize="12"
                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                <TextBlock x:Name="BranchStatusText" Text="ブランチ: 未設定" 
-                           Style="{StaticResource CaptionTextBlockStyle}"
-                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="BranchStatusText" Text="ブランチ: 未設定"
+                           FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
-            <TextBlock x:Name="RepoPathText" Grid.Column="2"
-                       Text="" Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       VerticalAlignment="Center"/>
+            <TextBlock x:Name="RepoPathText" Grid.Column="1"
+                       Text="設定画面からリポジトリを指定してください"
+                       FontSize="12" HorizontalAlignment="Right"
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
         </Grid>
     </Grid>
 </Window>

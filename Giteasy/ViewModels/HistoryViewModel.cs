@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.Input;
 using Giteasy.Helpers;
 using Giteasy.Models;
 using Giteasy.Services;
-using LibGit2Sharp;
 using Microsoft.UI.Xaml;
 
 namespace Giteasy.ViewModels;
@@ -74,7 +73,7 @@ public partial class HistoryViewModel : ObservableObject
         {
             var sha = SelectedCommit.FullSha;
             var result = await Task.Run(() => _git.RevertCommit(sha));
-            if (result.Status == RevertStatus.Conflicts)
+            if (result == "Conflicts")
             {
                 await DialogHelper.ShowErrorAsync(_xamlRoot, "競合が発生しました",
                     "Revert 中に競合が発生しました。\nステータス画面で競合ファイルを確認してください。");

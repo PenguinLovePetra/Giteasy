@@ -1,10 +1,10 @@
 using System;
-using System.IO;
-using System.Text.Json;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Giteasy.Helpers;
+using Giteasy.Models;
 using Giteasy.Services;
 using Microsoft.UI.Xaml;
 using Windows.Storage.Pickers;
@@ -14,6 +14,7 @@ namespace Giteasy.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly GitService _git;
+    private readonly DatabaseService _db;
     private XamlRoot? _xamlRoot;
     private Window? _window;
 
@@ -32,43 +33,59 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRepositoryValid;
 
+    [ObservableProperty]
+    private string _selectedTheme = AppThemes.Light;
+
+    [ObservableProperty]
+    private string _selectedBackend = BackendModes.Builtin;
+
+    [ObservableProperty]
+    private bool _isGitExeAvailable;
+
+    [ObservableProperty]
+    private string _gitExePath = "";
+
+    /// <summary>利用可能なテーマのリスト。</summary>
+    public List<ThemeOption> AvailableThemes => AppThemes.AvailableThemes;
+
+    /// <summary>バックエンド切替時に呼ばれるコールバック。</summary>
+    public event Action<string>? BackendChanged;
+
     /// <summary>設定変更時に呼ばれるコールバック。</summary>
     public event Action? SettingsChanged;
 
-    private static readonly string SettingsFilePath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GitEasy", "settings.json");
+    /// <summary>テーマ変更時に呼ばれるコールバック。</summary>
+    public event Action<string>? ThemeChanged;
 
-    public SettingsViewModel(GitService git)
+    public SettingsViewModel(GitService git, DatabaseService db)
     {
         _git = git;
+        _db = db;
     }
 
     public void SetXamlRoot(XamlRoot root) => _xamlRoot = root;
     public void SetWindow(Window window) => _window = window;
 
-    /// <summary>保存された設定を読み込みます。</summary>
+    /// <summary>DB から設定を読み込みます。</summary>
     public void LoadSettings()
     {
         try
         {
-            if (File.Exists(SettingsFilePath))
-            {
-                var json = File.ReadAllText(SettingsFilePath);
-                var settings = JsonSerializer.Deserialize<AppSettings>(json);
-                if (settings != null)
-                {
-                    RepositoryPath = settings.RepositoryPath ?? "";
-                    UserName = settings.UserName ?? "";
-                    UserEmail = settings.UserEmail ?? "";
+            RepositoryPath = _db.GetSetting("repositoryPath") ?? "";
+            UserName = _db.GetSetting("userName") ?? "";
+            UserEmail = _db.GetSetting("userEmail") ?? "";
+            SelectedTheme = _db.GetSetting("theme") ?? AppThemes.Light;
+            SelectedBackend = _db.GetSetting("gitBackend") ?? BackendModes.Builtin;
 
-                    ApplySettingsToService();
-                }
-            }
+            // git.exe 検出
+            IsGitExeAvailable = GitExeDetector.IsAvailable;
+            GitExePath = GitExeDetector.DetectedPath ?? "見つかりません";
+
+            ApplySettingsToService();
         }
         catch
         {
-            // 設定ファイルの読み込みに失敗しても続行
+            // 読み込み失敗時は続行
         }
     }
 
@@ -81,7 +98,6 @@ public partial class SettingsViewModel : ObservableObject
         picker.SuggestedStartLocation = PickerLocationId.Desktop;
         picker.FileTypeFilter.Add("*");
 
-        // WinUI 3 ではウィンドウハンドルが必要
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_window);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
 
@@ -101,25 +117,22 @@ public partial class SettingsViewModel : ObservableObject
         {
             ApplySettingsToService();
 
-            // 設定ファイルの保存
-            var dir = Path.GetDirectoryName(SettingsFilePath)!;
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            var settings = new AppSettings
-            {
-                RepositoryPath = RepositoryPath,
-                UserName = UserName,
-                UserEmail = UserEmail
-            };
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(SettingsFilePath, json);
+            // DB に保存
+            _db.SetSetting("repositoryPath", RepositoryPath);
+            _db.SetSetting("userName", UserName);
+            _db.SetSetting("userEmail", UserEmail);
+            _db.SetSetting("theme", SelectedTheme);
+            _db.SetSetting("gitBackend", SelectedBackend);
 
             IsRepositoryValid = _git.IsRepositorySet;
             StatusMessage = IsRepositoryValid
                 ? "✓ 設定を保存しました。リポジトリは正常です。"
                 : "⚠ 指定されたパスにGitリポジトリが見つかりません。";
 
+            // テーマ変更通知
+            ThemeChanged?.Invoke(SelectedTheme);
+            // バックエンド変更通知
+            BackendChanged?.Invoke(SelectedBackend);
             SettingsChanged?.Invoke();
 
             await DialogHelper.ShowInfoAsync(_xamlRoot, "保存完了", "設定を保存しました。");
@@ -149,12 +162,8 @@ public partial class SettingsViewModel : ObservableObject
         {
             _git.SetUser(UserName, UserEmail);
         }
-    }
 
-    private class AppSettings
-    {
-        public string? RepositoryPath { get; set; }
-        public string? UserName { get; set; }
-        public string? UserEmail { get; set; }
+        // バックエンド切替
+        _git.SetBackend(SelectedBackend);
     }
 }

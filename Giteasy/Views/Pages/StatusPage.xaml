@@ -3,12 +3,7 @@
     x:Class="Giteasy.Views.Pages.StatusPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:converters="using:Giteasy.Converters"
     Loaded="Page_Loaded">
-
-    <Page.Resources>
-        <converters:HexColorToBrushConverter x:Key="HexToBrush"/>
-    </Page.Resources>
 
     <Grid Padding="0" RowSpacing="16">
         <Grid.RowDefinitions>
@@ -41,7 +36,7 @@
 
         <!-- ファイル一覧 -->
         <Grid Grid.Row="1" CornerRadius="8"
-              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
               BorderThickness="1" Padding="0">
             <Grid.RowDefinitions>
@@ -51,7 +46,7 @@
 
             <!-- ファイル操作ツールバー -->
             <Grid Grid.Row="0" Padding="12,8" 
-                  Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                  Background="{ThemeResource LayerFillColorAltBrush}"
                   CornerRadius="8,8,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -68,7 +63,7 @@
                         Foreground="#F44336">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE74D;" FontSize="14"/>
-                        <TextBlock Text="編集をすべて取り消して元に戻す"/>
+                        <TextBlock Text="変更を取消"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -90,7 +85,7 @@
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                             <Border Grid.Column="2" CornerRadius="4" Padding="8,2"
-                                    Background="{Binding StatusColor, Converter={StaticResource HexToBrush}}"
+                                    Background="{Binding StatusColor, Converter={StaticResource HexColorToBrushConverter}}"
                                     Opacity="0.85">
                                 <TextBlock Text="{Binding StatusText}" FontSize="12"
                                            Foreground="White" VerticalAlignment="Center"/>
@@ -120,7 +115,7 @@
 
         <!-- コミットエリア -->
         <Grid Grid.Row="2" CornerRadius="8"
-              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
               BorderThickness="1" Padding="16">
             <Grid.RowDefinitions>

@@ -39,6 +39,9 @@ public partial class RepoSetupViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = "";
 
+    [ObservableProperty]
+    private bool _autoInitBare = true;
+
     /// <summary>セットアップ完了時に呼ばれるコールバック。</summary>
     public event Action? SetupCompleted;
 
@@ -100,7 +103,7 @@ public partial class RepoSetupViewModel : ObservableObject
         try
         {
             var remoteUrl = string.IsNullOrWhiteSpace(InitRemoteUrl) ? null : InitRemoteUrl.Trim();
-            await _git.InitRepositoryAsync(InitLocalPath.Trim(), remoteUrl);
+            await _git.InitRepositoryAsync(InitLocalPath.Trim(), remoteUrl, AutoInitBare);
 
             var msg = "リポジトリを初期化しました。";
             if (remoteUrl != null)

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Giteasy.Models;
 using Giteasy.Services;
 using Giteasy.ViewModels;
 using Giteasy.Views.Pages;
@@ -9,51 +10,86 @@ namespace Giteasy;
 public sealed partial class MainWindow : Window
 {
     private readonly GitService _gitService;
+    private readonly DatabaseService _db;
     private readonly StatusViewModel _statusVm;
     private readonly BranchViewModel _branchVm;
     private readonly SyncViewModel _syncVm;
     private readonly HistoryViewModel _historyVm;
     private readonly SettingsViewModel _settingsVm;
     private readonly RepoSetupViewModel _repoSetupVm;
+    private readonly ProjectsViewModel _projectsVm;
+    private readonly LogViewModel _logVm;
 
     public MainWindow()
     {
         InitializeComponent();
 
-        // タイトルバーのカスタマイズ
+        // タイトルバー
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        // サービスとViewModelの初期化
+        // サービス初期化
         _gitService = new GitService();
+        _db = App.Database;
+
+        // ViewModel 初期化
         _statusVm = new StatusViewModel(_gitService);
         _branchVm = new BranchViewModel(_gitService);
         _syncVm = new SyncViewModel(_gitService);
         _historyVm = new HistoryViewModel(_gitService);
-        _settingsVm = new SettingsViewModel(_gitService);
+        _settingsVm = new SettingsViewModel(_gitService, _db);
         _repoSetupVm = new RepoSetupViewModel(_gitService);
+        _projectsVm = new ProjectsViewModel(_gitService, _db);
+        _logVm = new LogViewModel();
 
-        // 設定変更時にステータスバーを更新
+        // 設定変更 → ステータスバー更新
         _settingsVm.SettingsChanged += UpdateStatusBar;
+
+        // テーマ変更 → ランタイム適用
+        _settingsVm.ThemeChanged += theme => App.ApplyTheme(this, theme);
+
+        // セットアップ完了 → プロジェクト登録 & 設定更新
         _repoSetupVm.SetupCompleted += () =>
         {
-            _settingsVm.RepositoryPath = _gitService.RepositoryPath ?? "";
+            // DB にプロジェクトを登録
+            var localPath = _gitService.RepositoryPath ?? "";
+            if (!string.IsNullOrEmpty(localPath))
+            {
+                var name = System.IO.Path.GetFileName(localPath);
+                if (string.IsNullOrEmpty(name)) name = localPath;
+                _db.AddProject(new ProjectInfo
+                {
+                    Name = name,
+                    LocalPath = localPath,
+                    RemoteUrl = _repoSetupVm.InitRemoteUrl ?? _repoSetupVm.CloneRemoteUrl ?? "",
+                });
+            }
+
+            _settingsVm.RepositoryPath = localPath;
             _settingsVm.LoadSettings();
             UpdateStatusBar();
         };
 
-        // ウィンドウ参照の設定
+        // プロジェクト切替 → 設定更新
+        _projectsVm.ProjectOpened += project =>
+        {
+            _settingsVm.RepositoryPath = project.LocalPath;
+            _settingsVm.LoadSettings();
+            UpdateStatusBar();
+        };
+
+        // ウィンドウ参照
         _settingsVm.SetWindow(this);
         _repoSetupVm.SetWindow(this);
 
-        // 設定の読み込み
+        // 設定読み込み & テーマ初期適用
         _settingsVm.LoadSettings();
+        App.ApplyTheme(this, _settingsVm.SelectedTheme);
         UpdateStatusBar();
     }
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)
     {
-        // 起動時に最初のアイテムを選択
         NavView.SelectedItem = NavView.MenuItems[0];
     }
 
@@ -64,33 +100,32 @@ public sealed partial class MainWindow : Window
         var tag = item.Tag?.ToString();
         switch (tag)
         {
+            case "Projects":
+                ContentFrame.Content = new ProjectsPage(_projectsVm);
+                break;
             case "RepoSetup":
-                var repoSetupPage = new RepoSetupPage(_repoSetupVm);
-                ContentFrame.Content = repoSetupPage;
+                ContentFrame.Content = new RepoSetupPage(_repoSetupVm);
                 break;
             case "Status":
-                var statusPage = new StatusPage(_statusVm);
-                ContentFrame.Content = statusPage;
+                ContentFrame.Content = new StatusPage(_statusVm);
                 break;
             case "Branch":
-                var branchPage = new BranchPage(_branchVm);
-                ContentFrame.Content = branchPage;
+                ContentFrame.Content = new BranchPage(_branchVm);
                 break;
             case "Sync":
-                var syncPage = new SyncPage(_syncVm);
-                ContentFrame.Content = syncPage;
+                ContentFrame.Content = new SyncPage(_syncVm);
                 break;
             case "History":
-                var historyPage = new HistoryPage(_historyVm);
-                ContentFrame.Content = historyPage;
+                ContentFrame.Content = new HistoryPage(_historyVm);
                 break;
             case "Settings":
-                var settingsPage = new SettingsPage(_settingsVm);
-                ContentFrame.Content = settingsPage;
+                ContentFrame.Content = new SettingsPage(_settingsVm);
+                break;
+            case "Log":
+                ContentFrame.Content = new LogPage(_logVm);
                 break;
         }
 
-        // ステータスバー更新
         UpdateStatusBar();
     }
 
