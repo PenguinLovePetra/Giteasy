@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Giteasy.Views.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="Page_Loaded">
+
+    <Grid Padding="0" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ヘッダー -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="設定" Style="{StaticResource TitleTextBlockStyle}"/>
+            <TextBlock x:Name="StatusText" Text=""
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="16" MaxWidth="600" HorizontalAlignment="Left">
+
+                <!-- リポジトリパス設定 -->
+                <Grid CornerRadius="8"
+                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                      BorderThickness="1" Padding="20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8B7;" FontSize="20"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="リポジトリのパス" 
+                                       Style="{StaticResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="Gitで管理されているフォルダのパスを選択してください。"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="RepoPathBox" 
+                                     PlaceholderText="C:\Users\you\project"
+                                     IsReadOnly="True"/>
+                            <Button Grid.Column="1" Content="フォルダを選択" Margin="8,0,0,0"
+                                    Click="Browse_Click"/>
+                        </Grid>
+                        <!-- パス検証ステータス -->
+                        <StackPanel x:Name="RepoValidIndicator" Orientation="Horizontal" Spacing="8"
+                                    Visibility="Collapsed">
+                            <FontIcon x:Name="RepoValidIcon" Glyph="&#xE930;" FontSize="16"/>
+                            <TextBlock x:Name="RepoValidText" Text=""/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ユーザー設定 -->
+                <Grid CornerRadius="8"
+                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                      BorderThickness="1" Padding="20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE77B;" FontSize="20"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="ユーザー情報" 
+                                       Style="{StaticResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="コミットに記録される名前とメールアドレスです。"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBox x:Name="UserNameBox" Header="名前"
+                                 PlaceholderText="例: 山田太郎"/>
+                        <TextBox x:Name="UserEmailBox" Header="メールアドレス"
+                                 PlaceholderText="例: yamada@example.com"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 保存ボタン -->
+                <Button Content="設定を保存" MinWidth="120"
+                        Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Right"
+                        Click="Save_Click"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

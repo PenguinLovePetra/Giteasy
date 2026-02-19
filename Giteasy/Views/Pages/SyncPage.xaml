@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Giteasy.Views.Pages.SyncPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="Page_Loaded">
+
+    <Grid Padding="0" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ヘッダー -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="リモートとの同期" Style="{StaticResource TitleTextBlockStyle}"/>
+            <TextBlock x:Name="StatusText" Text=""
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- 同期操作カード群 -->
+        <StackPanel Grid.Row="1" Spacing="16">
+
+            <!-- Pull カード -->
+            <Grid CornerRadius="8"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  BorderThickness="1" Padding="24,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE896;" FontSize="24"
+                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="Pull（リモートの変更を取り込む）" 
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="リモートリポジトリの最新の変更をローカルに反映します。"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Margin="36,0,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Pull" MinWidth="100"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="Pull_Click" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Push カード -->
+            <Grid CornerRadius="8"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  BorderThickness="1" Padding="24,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE898;" FontSize="24"
+                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="Push（ローカルの変更を送信する）" 
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="ローカルでコミットした変更をリモートリポジトリに送信します。"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Margin="36,0,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Push" MinWidth="100"
+                        Click="Push_Click" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Fetch カード -->
+            <Grid CornerRadius="8"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  BorderThickness="1" Padding="24,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE895;" FontSize="24"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="Fetch（情報だけ取得する）" 
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="リモートの最新情報を確認します。ローカルのファイルは変更されません。"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Margin="36,0,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Fetch" MinWidth="100"
+                        Click="Fetch_Click" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- ローディングインジケーター -->
+            <ProgressBar x:Name="SyncProgress" IsIndeterminate="False"
+                         Visibility="Collapsed"/>
+        </StackPanel>
+    </Grid>
+</Page>

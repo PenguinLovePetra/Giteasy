@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Giteasy.Views.Pages.HistoryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="Page_Loaded">
+
+    <Grid Padding="0" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ヘッダー -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="コミット履歴" Style="{StaticResource TitleTextBlockStyle}"/>
+            <Button Grid.Column="1" Content="更新" Click="Refresh_Click" VerticalAlignment="Top"/>
+        </Grid>
+
+        <!-- コミットログ一覧 -->
+        <Grid Grid.Row="1" CornerRadius="8"
+              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+              BorderThickness="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <ListView x:Name="CommitListView" Grid.Row="0" Padding="4"
+                      SelectionMode="Single"
+                      SelectionChanged="CommitList_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8,10" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- SHA -->
+                            <Border CornerRadius="4" Padding="6,2"
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                <TextBlock Text="{Binding ShortSha}" FontFamily="Consolas"
+                                           FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            </Border>
+                            <!-- メッセージ & 作者 -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{Binding Message}" TextTrimming="CharacterEllipsis"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding AuthorName}" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                            <!-- 日時 -->
+                            <TextBlock Grid.Column="2" Text="{Binding FormattedDate}" 
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Revert ボタン -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Padding="12,8"
+                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                        CornerRadius="0,0,8,8">
+                <Button x:Name="RevertBtn" Click="Revert_Click"
+                        IsEnabled="False" Foreground="#FF9800">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE7A7;" FontSize="14"/>
+                        <TextBlock Text="このコミットを取り消す（Revert）"/>
+                    </StackPanel>
+                </Button>
+                <TextBlock x:Name="RevertHint" VerticalAlignment="Center"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Text="← 取り消したいコミットを選択してください"/>
+            </StackPanel>
+
+            <ProgressRing x:Name="LoadingRing" Grid.Row="0"
+                          IsActive="False" Width="40" Height="40"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+    </Grid>
+</Page>
