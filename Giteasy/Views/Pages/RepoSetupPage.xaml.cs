@@ -47,6 +47,7 @@ public sealed partial class RepoSetupPage : Page
     {
         _vm.InitLocalPath = InitLocalPathBox.Text;
         _vm.InitRemoteUrl = InitRemoteUrlBox.Text;
+        _vm.AutoInitBare = AutoInitBareToggle.IsOn;
         await _vm.InitRepositoryCommand.ExecuteAsync(null);
     }
 

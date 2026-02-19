@@ -12,95 +12,77 @@
         </Grid.RowDefinitions>
 
         <!-- ヘッダー -->
-        <StackPanel Grid.Row="0">
-            <TextBlock Text="リモートとの同期" Style="{StaticResource TitleTextBlockStyle}"/>
-            <TextBlock x:Name="StatusText" Text=""
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Margin="0,4,0,0"/>
-        </StackPanel>
+        <TextBlock Text="リモートとの同期" Style="{StaticResource TitleTextBlockStyle}" Grid.Row="0"/>
 
         <!-- 同期操作カード群 -->
-        <StackPanel Grid.Row="1" Spacing="16">
+        <StackPanel Grid.Row="1" Spacing="4">
 
             <!-- Pull カード -->
             <Grid CornerRadius="8"
-                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  Background="{ThemeResource LayerFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                  BorderThickness="1" Padding="24,20">
+                  BorderThickness="1" Padding="20,16"
+                  ToolTipService.ToolTip="リモートリポジトリの最新の変更をローカルに反映します。">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Spacing="4">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon Glyph="&#xE896;" FontSize="24"
-                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="Pull（リモートの変更を取り込む）" 
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBlock Text="リモートリポジトリの最新の変更をローカルに反映します。"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Margin="36,0,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1" Content="Pull" MinWidth="100"
+                <FontIcon Glyph="&#xE896;" FontSize="22" Margin="0,0,14,0"
+                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                          VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Pull" FontWeight="SemiBold" FontSize="15"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="実行" MinWidth="80"
                         Style="{StaticResource AccentButtonStyle}"
                         Click="Pull_Click" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- Push カード -->
             <Grid CornerRadius="8"
-                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  Background="{ThemeResource LayerFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                  BorderThickness="1" Padding="24,20">
+                  BorderThickness="1" Padding="20,16"
+                  ToolTipService.ToolTip="ローカルでコミットした変更をリモートリポジトリに送信します。">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Spacing="4">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon Glyph="&#xE898;" FontSize="24"
-                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="Push（ローカルの変更を送信する）" 
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBlock Text="ローカルでコミットした変更をリモートリポジトリに送信します。"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Margin="36,0,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1" Content="Push" MinWidth="100"
+                <FontIcon Glyph="&#xE898;" FontSize="22" Margin="0,0,14,0"
+                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                          VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Push" FontWeight="SemiBold" FontSize="15"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="実行" MinWidth="80"
                         Click="Push_Click" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- Fetch カード -->
             <Grid CornerRadius="8"
-                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  Background="{ThemeResource LayerFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                  BorderThickness="1" Padding="24,20">
+                  BorderThickness="1" Padding="20,16"
+                  ToolTipService.ToolTip="リモートの最新情報を確認します。ローカルのファイルは変更されません。">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Spacing="4">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <FontIcon Glyph="&#xE895;" FontSize="24"
-                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <TextBlock Text="Fetch（情報だけ取得する）" 
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBlock Text="リモートの最新情報を確認します。ローカルのファイルは変更されません。"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Margin="36,0,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1" Content="Fetch" MinWidth="100"
+                <FontIcon Glyph="&#xE895;" FontSize="22" Margin="0,0,14,0"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                          VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Fetch" FontWeight="SemiBold" FontSize="15"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="実行" MinWidth="80"
                         Click="Fetch_Click" VerticalAlignment="Center"/>
             </Grid>
+
+            <!-- ステータス -->
+            <TextBlock x:Name="StatusText" Text=""
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,8,0,0"/>
 
             <!-- ローディングインジケーター -->
             <ProgressBar x:Name="SyncProgress" IsIndeterminate="False"

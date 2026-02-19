@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml;
 using System;
 using Windows.UI;
 
@@ -23,9 +24,7 @@ public class HexColorToBrushConverter : IValueConverter
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
-    {
-        throw new NotImplementedException();
-    }
+        => throw new NotImplementedException();
 }
 
 /// <summary>
@@ -44,4 +43,19 @@ public class InverseBoolConverter : IValueConverter
         if (value is bool b) return !b;
         return false;
     }
+}
+
+/// <summary>
+/// 空でない文字列なら Visible、空なら Collapsed。
+/// </summary>
+public class StringToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return string.IsNullOrWhiteSpace(value as string)
+            ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
 }

@@ -13,13 +13,7 @@
         </Grid.RowDefinitions>
 
         <!-- ヘッダー -->
-        <StackPanel Grid.Row="0">
-            <TextBlock Text="リポジトリのセットアップ" Style="{StaticResource TitleTextBlockStyle}"/>
-            <TextBlock x:Name="StatusText" Text="新しいリポジトリを作成するか、既存のリポジトリをクローンできます。"
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Margin="0,4,0,0"/>
-        </StackPanel>
+        <TextBlock Text="リポジトリのセットアップ" Style="{StaticResource TitleTextBlockStyle}" Grid.Row="0"/>
 
         <!-- ローディング -->
         <ProgressBar x:Name="ProgressIndicator" Grid.Row="1"
@@ -37,13 +31,14 @@
                     </StackPanel>
                 </PivotItem.Header>
                 <ScrollViewer Padding="0,16,0,0">
-                    <StackPanel Spacing="16" MaxWidth="600" HorizontalAlignment="Left">
+                    <StackPanel Spacing="4" MaxWidth="600" HorizontalAlignment="Left">
 
                         <!-- ステップ 1: ローカルパス -->
                         <Grid CornerRadius="8"
-                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                              BorderThickness="1" Padding="20">
+                              BorderThickness="1" Padding="20"
+                              ToolTipService.ToolTip="Git で管理したいプロジェクトのフォルダを選んでください。空でも既存でもOKです。">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Border CornerRadius="12" Width="24" Height="24"
@@ -52,14 +47,9 @@
                                                    FontSize="12" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="リポジトリを作成するフォルダ" 
-                                               Style="{StaticResource SubtitleTextBlockStyle}"
+                                    <TextBlock Text="フォルダを選択" FontWeight="SemiBold" FontSize="14"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="Git で管理したいプロジェクトのフォルダを選んでください。空でも既存でもOKです。"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextWrapping="Wrap"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -67,7 +57,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="InitLocalPathBox" 
                                              PlaceholderText="C:\Users\you\my-project"/>
-                                    <Button Grid.Column="1" Content="フォルダを選択"
+                                    <Button Grid.Column="1" Content="参照"
                                             Margin="8,0,0,0" Click="BrowseInitPath_Click"/>
                                 </Grid>
                             </StackPanel>
@@ -75,9 +65,10 @@
 
                         <!-- ステップ 2: リモートURL (任意) -->
                         <Grid CornerRadius="8"
-                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                              BorderThickness="1" Padding="20">
+                              BorderThickness="1" Padding="20"
+                              ToolTipService.ToolTip="サーバー上のリポジトリURLを入力すると、自動で接続 (origin) を設定します。後からでも設定できます。">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Border CornerRadius="12" Width="24" Height="24"
@@ -86,24 +77,47 @@
                                                    FontSize="12" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="リモートURL（任意）" 
-                                               Style="{StaticResource SubtitleTextBlockStyle}"
+                                    <TextBlock Text="リモートURL（任意）" FontWeight="SemiBold" FontSize="14"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="サーバー上のリポジトリURLを入力すると、自動で接続 (origin) を設定します。後からでも設定できます。"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextWrapping="Wrap"/>
                                 <TextBox x:Name="InitRemoteUrlBox" 
-                                         PlaceholderText="例: https://github.com/user/repo.git  や  \\server\share\repo.git"/>
+                                         PlaceholderText="https://github.com/user/repo.git"/>
                             </StackPanel>
+                        </Grid>
+
+                        <!-- bare 自動初期化オプション -->
+                        <Grid CornerRadius="8"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
+                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                              BorderThickness="1" Padding="20"
+                              ToolTipService.ToolTip="リモートURLがローカルパスの場合、そのパスにGitリポジトリがなければベアリポジトリを自動作成します">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="リモートの自動初期化" FontWeight="SemiBold" FontSize="14"/>
+                                    <TextBlock Text="ローカルパスにリポジトリがない場合、bareリポジトリを自動作成"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="AutoInitBareToggle" Grid.Column="1" 
+                                              IsOn="True" OnContent="ON" OffContent="OFF"/>
+                            </Grid>
                         </Grid>
 
                         <!-- 実行ボタン -->
                         <Button Content="リポジトリを作成する" MinWidth="200"
                                 Style="{StaticResource AccentButtonStyle}"
                                 HorizontalAlignment="Right"
-                                Click="InitRepo_Click"/>
+                                Click="InitRepo_Click" Margin="0,8,0,0"/>
+
+                        <!-- ステータス -->
+                        <TextBlock x:Name="StatusText" Text=""
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Margin="0,4,0,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </PivotItem>
@@ -117,13 +131,14 @@
                     </StackPanel>
                 </PivotItem.Header>
                 <ScrollViewer Padding="0,16,0,0">
-                    <StackPanel Spacing="16" MaxWidth="600" HorizontalAlignment="Left">
+                    <StackPanel Spacing="4" MaxWidth="600" HorizontalAlignment="Left">
 
                         <!-- ステップ 1: リモートURL -->
                         <Grid CornerRadius="8"
-                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                              BorderThickness="1" Padding="20">
+                              BorderThickness="1" Padding="20"
+                              ToolTipService.ToolTip="コピーしたいリモートリポジトリのURLまたはネットワークパスを入力してください。">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Border CornerRadius="12" Width="24" Height="24"
@@ -132,24 +147,20 @@
                                                    FontSize="12" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="クローン元のURL" 
-                                               Style="{StaticResource SubtitleTextBlockStyle}"
+                                    <TextBlock Text="クローン元のURL" FontWeight="SemiBold" FontSize="14"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="コピーしたいリモートリポジトリのURLまたはネットワークパスを入力してください。"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextWrapping="Wrap"/>
                                 <TextBox x:Name="CloneRemoteUrlBox" 
-                                         PlaceholderText="例: https://github.com/user/repo.git  や  \\server\share\repo.git"/>
+                                         PlaceholderText="https://github.com/user/repo.git"/>
                             </StackPanel>
                         </Grid>
 
                         <!-- ステップ 2: ローカルパス -->
                         <Grid CornerRadius="8"
-                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                              BorderThickness="1" Padding="20">
+                              BorderThickness="1" Padding="20"
+                              ToolTipService.ToolTip="リポジトリの内容をダウンロードするフォルダを選んでください。">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Border CornerRadius="12" Width="24" Height="24"
@@ -158,14 +169,9 @@
                                                    FontSize="12" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="保存先フォルダ" 
-                                               Style="{StaticResource SubtitleTextBlockStyle}"
+                                    <TextBlock Text="保存先フォルダ" FontWeight="SemiBold" FontSize="14"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="リポジトリの内容をダウンロードするフォルダを選んでください。"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextWrapping="Wrap"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -173,7 +179,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="CloneLocalPathBox" 
                                              PlaceholderText="C:\Users\you\cloned-project"/>
-                                    <Button Grid.Column="1" Content="フォルダを選択"
+                                    <Button Grid.Column="1" Content="参照"
                                             Margin="8,0,0,0" Click="BrowseClonePath_Click"/>
                                 </Grid>
                             </StackPanel>
@@ -183,7 +189,7 @@
                         <Button Content="クローンを実行する" MinWidth="200"
                                 Style="{StaticResource AccentButtonStyle}"
                                 HorizontalAlignment="Right"
-                                Click="CloneRepo_Click"/>
+                                Click="CloneRepo_Click" Margin="0,8,0,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </PivotItem>
