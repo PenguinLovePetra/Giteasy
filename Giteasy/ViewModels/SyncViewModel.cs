@@ -59,7 +59,8 @@ public partial class SyncViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "フェッチに失敗しました。";
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "フェッチエラー", ex.Message);
+            GitLogService.Log($"[フェッチエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "フェッチエラー", ex);
         }
         finally
         {
@@ -98,7 +99,8 @@ public partial class SyncViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "Pull に失敗しました。";
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "Pull エラー", ex.Message);
+            GitLogService.Log($"[Pullエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "Pull エラー", ex);
         }
         finally
         {
@@ -123,7 +125,8 @@ public partial class SyncViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "Push に失敗しました。";
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "Push エラー", ex.Message);
+            GitLogService.Log($"[Pushエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "Push エラー", ex);
         }
         finally
         {

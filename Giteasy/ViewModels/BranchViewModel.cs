@@ -53,8 +53,9 @@ public partial class BranchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            GitLogService.Log($"[ブランチ取得エラー] {ex.Message}");
             if (_xamlRoot != null)
-                await DialogHelper.ShowErrorAsync(_xamlRoot, "エラー", ex.Message);
+                await DialogHelper.ShowExceptionAsync(_xamlRoot, "ブランチ一覧の取得に失敗しました", ex);
         }
         finally
         {
@@ -83,7 +84,8 @@ public partial class BranchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "ブランチ作成エラー", ex.Message);
+            GitLogService.Log($"[ブランチ作成エラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "ブランチ作成エラー", ex);
         }
         finally
         {
@@ -107,7 +109,8 @@ public partial class BranchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "ブランチ切替エラー", ex.Message);
+            GitLogService.Log($"[ブランチ切替エラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "ブランチ切替エラー", ex);
         }
         finally
         {
@@ -149,7 +152,8 @@ public partial class BranchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "マージエラー", ex.Message);
+            GitLogService.Log($"[マージエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "マージエラー", ex);
         }
         finally
         {
@@ -188,7 +192,8 @@ public partial class BranchViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "ブランチ削除エラー", ex.Message);
+            GitLogService.Log($"[ブランチ削除エラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "ブランチ削除エラー", ex);
         }
         finally
         {

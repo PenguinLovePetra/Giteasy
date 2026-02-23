@@ -252,20 +252,39 @@ public class GitExeBackend : IGitBackend
         EnsureRepository();
         // パイプ文字がメッセージに入る可能性を考慮して区切りを特殊文字に
         var sep = "§§";
-        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI", _repositoryPath!);
+        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
         if (result.ExitCode != 0) return new List<CommitInfo>();
 
         var commits = new List<CommitInfo>();
         foreach (var line in result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Split(sep, 4, StringSplitOptions.None);
-            if (parts.Length < 4) continue;
+            var parts = line.Split(sep, 6, StringSplitOptions.None);
+            if (parts.Length < 6) continue;
+
+            var parentShas = parts[4].Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
+
+            var refsRaw = parts[5].Trim();
+            var refs = string.IsNullOrEmpty(refsRaw)
+                ? new List<string>()
+                : refsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(r => r.Trim()
+                        .Replace("HEAD -> ", "HEAD, ")  // "HEAD -> main" を分離
+                    )
+                    .SelectMany(r => r.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    .Select(r => r.Trim())
+                    .Where(r => !r.StartsWith("origin/")) // リモートブランチはスキップ
+                    .ToList();
+
             commits.Add(new CommitInfo(
                 parts[0].Trim(),
                 parts[1].Trim(),
                 parts[2].Trim(),
                 DateTimeOffset.TryParse(parts[3].Trim(), out var dt)
-                    ? dt : DateTimeOffset.MinValue));
+                    ? dt : DateTimeOffset.MinValue,
+                parentShas,
+                refs));
         }
         return commits;
     }
@@ -315,10 +334,74 @@ public class GitExeBackend : IGitBackend
 
         await Task.Run(() =>
         {
-            var parent = Path.GetDirectoryName(localPath) ?? localPath;
+            var trimmedUrl = remoteUrl.Trim();
+            var trimmedPath = localPath.Trim();
+
+            var parent = Path.GetDirectoryName(trimmedPath) ?? trimmedPath;
             if (!Directory.Exists(parent))
                 Directory.CreateDirectory(parent);
-            RunGitOrThrow($"clone \"{remoteUrl}\" \"{localPath}\"", parent);
+
+            // ローカルパスやUNCパスの場合、bareリポジトリを自動初期化
+            EnsureRemoteBareIfLocal(trimmedUrl);
+
+            // ローカルパスを git が正しく認識できる形式に変換
+            // git は "C:\path" や "C:/path" を SSH URL (host:path) と誤解するため、
+            // file:/// プロトコルを明示的に付与する
+            var gitUrl = trimmedUrl;
+            if (!gitUrl.Contains("://") && !gitUrl.Contains("@"))
+            {
+                // バックスラッシュ → フォワードスラッシュ
+                gitUrl = gitUrl.Replace('\\', '/');
+
+                if (gitUrl.Length >= 2 && gitUrl[1] == ':')
+                {
+                    // ドライブレター付きパス (例: C:/Users/...) → file:///C:/Users/...
+                    gitUrl = "file:///" + gitUrl;
+                }
+                else if (gitUrl.StartsWith("//"))
+                {
+                    // UNCパス (例: //server/share) → file://server/share
+                    gitUrl = "file:" + gitUrl;
+                }
+            }
+
+            // ArgumentList を使ってパス内のスペースを安全に処理
+            var psi = new ProcessStartInfo
+            {
+                FileName = _gitExePath,
+                WorkingDirectory = parent,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
+            };
+            psi.ArgumentList.Add("clone");
+            psi.ArgumentList.Add(gitUrl);
+            psi.ArgumentList.Add(trimmedPath);
+
+            GitLogService.Log($"$ git clone \"{gitUrl}\" \"{trimmedPath}\"");
+
+            using var proc = Process.Start(psi)
+                             ?? throw new InvalidOperationException("git.exe の起動に失敗しました。");
+            var output = proc.StandardOutput.ReadToEnd();
+            var error = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(120000); // クローンは時間がかかるため2分
+
+            if (!string.IsNullOrWhiteSpace(output))
+                GitLogService.Log($"  {output.Trim()}");
+
+            if (proc.ExitCode != 0)
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                    GitLogService.Log($"  [ERROR] {error.Trim()}");
+                throw new InvalidOperationException($"git clone に失敗しました:\n{error}");
+            }
+
+            // 成功時のstderrもログ出力（progressメッセージなど）
+            if (!string.IsNullOrWhiteSpace(error))
+                GitLogService.Log($"  {error.Trim()}");
         });
         _repositoryPath = localPath;
     }
