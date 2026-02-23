@@ -22,6 +22,7 @@ public partial class HistoryViewModel : ObservableObject
     private CommitInfo? _selectedCommit;
 
     public ObservableCollection<CommitInfo> Commits { get; } = new();
+    public ObservableCollection<GraphNode> GraphNodes { get; } = new();
 
     public HistoryViewModel(GitService git)
     {
@@ -39,9 +40,14 @@ public partial class HistoryViewModel : ObservableObject
         try
         {
             var commits = await Task.Run(() => _git.GetCommitLog());
+            var nodes = await Task.Run(() => GraphService.BuildGraph(commits));
+
             Commits.Clear();
+            GraphNodes.Clear();
             foreach (var c in commits)
                 Commits.Add(c);
+            foreach (var n in nodes)
+                GraphNodes.Add(n);
         }
         catch (Exception ex)
         {

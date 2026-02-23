@@ -369,9 +369,33 @@ public class GitService : IGitBackend
         if (_externalBackend != null) return _externalBackend.GetCommitLog(maxCount);
         EnsureRepository();
         using var repo = new Repository(_repositoryPath);
+
+        // Refマッピングを構築（SHA → Ref名リスト）
+        var refMap = new Dictionary<string, List<string>>();
+        foreach (var r in repo.Refs)
+        {
+            var targetSha = r.ResolveToDirectReference()?.Target?.Sha;
+            if (targetSha == null) continue;
+            if (!refMap.ContainsKey(targetSha))
+                refMap[targetSha] = new List<string>();
+            // フレンドリー名に変換
+            var name = r.CanonicalName;
+            if (name.StartsWith("refs/heads/")) name = name["refs/heads/".Length..];
+            else if (name.StartsWith("refs/tags/")) name = "tag: " + name["refs/tags/".Length..];
+            else if (name == "HEAD") name = "HEAD";
+            else continue; // remotes等はスキップ
+            refMap[targetSha].Add(name);
+        }
+
         return repo.Commits
             .Take(maxCount)
-            .Select(c => new CommitInfo(c.Sha, c.MessageShort, c.Author.Name, c.Author.When))
+            .Select(c => new CommitInfo(
+                c.Sha,
+                c.MessageShort,
+                c.Author.Name,
+                c.Author.When,
+                c.Parents.Select(p => p.Sha).ToList(),
+                refMap.TryGetValue(c.Sha, out var refs) ? refs : null))
             .ToList();
     }
 

@@ -33,32 +33,53 @@
 
             <ListView x:Name="CommitListView" Grid.Row="0" Padding="4"
                       SelectionMode="Single"
-                      SelectionChanged="CommitList_SelectionChanged">
+                      SelectionChanged="CommitList_SelectionChanged"
+                      ContainerContentChanging="CommitList_ContainerContentChanging">
                 <ListView.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="8,10" ColumnSpacing="16">
+                        <Grid Padding="0,6" ColumnSpacing="0" MinHeight="42">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+
+                            <!-- グラフ Canvas -->
+                            <Canvas x:Name="GraphCanvas" Grid.Column="0"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
                             <!-- SHA -->
-                            <Border CornerRadius="4" Padding="6,2"
+                            <Border Grid.Column="1" CornerRadius="4" Padding="6,2" Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
                                     Background="{ThemeResource LayerFillColorAltBrush}">
-                                <TextBlock Text="{Binding ShortSha}" FontFamily="Consolas"
+                                <TextBlock Text="{Binding Commit.ShortSha}" FontFamily="Consolas"
                                            FontSize="12" VerticalAlignment="Center"
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                             </Border>
-                            <!-- メッセージ & 作者 -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="{Binding Message}" TextTrimming="CharacterEllipsis"
-                                           FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding AuthorName}" FontSize="12"
+
+                            <!-- メッセージ & 作者 & Ref -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2"
+                                        Orientation="Vertical">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <!-- Refラベルはコードビハインドで動的に追加 -->
+                                    <ItemsControl x:Name="RefLabels">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="4"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding Commit.Message}" TextTrimming="CharacterEllipsis"
+                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Commit.AuthorName}" FontSize="12"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                             </StackPanel>
+
                             <!-- 日時 -->
-                            <TextBlock Grid.Column="2" Text="{Binding FormattedDate}" 
-                                       FontSize="12" VerticalAlignment="Center"
+                            <TextBlock Grid.Column="3" Text="{Binding Commit.FormattedDate}"
+                                       FontSize="12" VerticalAlignment="Center" Margin="8,0,4,0"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </Grid>
                     </DataTemplate>

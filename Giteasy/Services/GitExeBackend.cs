@@ -252,20 +252,39 @@ public class GitExeBackend : IGitBackend
         EnsureRepository();
         // パイプ文字がメッセージに入る可能性を考慮して区切りを特殊文字に
         var sep = "§§";
-        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI", _repositoryPath!);
+        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
         if (result.ExitCode != 0) return new List<CommitInfo>();
 
         var commits = new List<CommitInfo>();
         foreach (var line in result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Split(sep, 4, StringSplitOptions.None);
-            if (parts.Length < 4) continue;
+            var parts = line.Split(sep, 6, StringSplitOptions.None);
+            if (parts.Length < 6) continue;
+
+            var parentShas = parts[4].Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
+
+            var refsRaw = parts[5].Trim();
+            var refs = string.IsNullOrEmpty(refsRaw)
+                ? new List<string>()
+                : refsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(r => r.Trim()
+                        .Replace("HEAD -> ", "HEAD, ")  // "HEAD -> main" を分離
+                    )
+                    .SelectMany(r => r.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    .Select(r => r.Trim())
+                    .Where(r => !r.StartsWith("origin/")) // リモートブランチはスキップ
+                    .ToList();
+
             commits.Add(new CommitInfo(
                 parts[0].Trim(),
                 parts[1].Trim(),
                 parts[2].Trim(),
                 DateTimeOffset.TryParse(parts[3].Trim(), out var dt)
-                    ? dt : DateTimeOffset.MinValue));
+                    ? dt : DateTimeOffset.MinValue,
+                parentShas,
+                refs));
         }
         return commits;
     }
