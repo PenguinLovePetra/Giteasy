@@ -51,8 +51,9 @@ public partial class HistoryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            GitLogService.Log($"[履歴取得エラー] {ex.Message}");
             if (_xamlRoot != null)
-                await DialogHelper.ShowErrorAsync(_xamlRoot, "エラー", ex.Message);
+                await DialogHelper.ShowExceptionAsync(_xamlRoot, "コミット履歴の取得に失敗しました", ex);
         }
         finally
         {
@@ -93,7 +94,8 @@ public partial class HistoryViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "Revert エラー", ex.Message);
+            GitLogService.Log($"[Revertエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "Revert エラー", ex);
         }
         finally
         {

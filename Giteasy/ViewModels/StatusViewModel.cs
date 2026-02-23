@@ -54,8 +54,9 @@ public partial class StatusViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            GitLogService.Log($"[ステータス取得エラー] {ex.Message}");
             if (_xamlRoot != null)
-                await DialogHelper.ShowErrorAsync(_xamlRoot, "エラー", ex.Message);
+                await DialogHelper.ShowExceptionAsync(_xamlRoot, "ステータスの取得に失敗しました", ex);
         }
         finally
         {
@@ -112,7 +113,8 @@ public partial class StatusViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "コミットエラー", ex.Message);
+            GitLogService.Log($"[コミットエラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "コミットエラー", ex);
         }
         finally
         {
@@ -149,7 +151,8 @@ public partial class StatusViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "エラー", ex.Message);
+            GitLogService.Log($"[変更取消エラー] {ex.Message}");
+            await DialogHelper.ShowExceptionAsync(_xamlRoot, "エラー", ex);
         }
         finally
         {

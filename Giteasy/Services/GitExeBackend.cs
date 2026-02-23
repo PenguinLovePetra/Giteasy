@@ -334,10 +334,74 @@ public class GitExeBackend : IGitBackend
 
         await Task.Run(() =>
         {
-            var parent = Path.GetDirectoryName(localPath) ?? localPath;
+            var trimmedUrl = remoteUrl.Trim();
+            var trimmedPath = localPath.Trim();
+
+            var parent = Path.GetDirectoryName(trimmedPath) ?? trimmedPath;
             if (!Directory.Exists(parent))
                 Directory.CreateDirectory(parent);
-            RunGitOrThrow($"clone \"{remoteUrl}\" \"{localPath}\"", parent);
+
+            // ローカルパスやUNCパスの場合、bareリポジトリを自動初期化
+            EnsureRemoteBareIfLocal(trimmedUrl);
+
+            // ローカルパスを git が正しく認識できる形式に変換
+            // git は "C:\path" や "C:/path" を SSH URL (host:path) と誤解するため、
+            // file:/// プロトコルを明示的に付与する
+            var gitUrl = trimmedUrl;
+            if (!gitUrl.Contains("://") && !gitUrl.Contains("@"))
+            {
+                // バックスラッシュ → フォワードスラッシュ
+                gitUrl = gitUrl.Replace('\\', '/');
+
+                if (gitUrl.Length >= 2 && gitUrl[1] == ':')
+                {
+                    // ドライブレター付きパス (例: C:/Users/...) → file:///C:/Users/...
+                    gitUrl = "file:///" + gitUrl;
+                }
+                else if (gitUrl.StartsWith("//"))
+                {
+                    // UNCパス (例: //server/share) → file://server/share
+                    gitUrl = "file:" + gitUrl;
+                }
+            }
+
+            // ArgumentList を使ってパス内のスペースを安全に処理
+            var psi = new ProcessStartInfo
+            {
+                FileName = _gitExePath,
+                WorkingDirectory = parent,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
+            };
+            psi.ArgumentList.Add("clone");
+            psi.ArgumentList.Add(gitUrl);
+            psi.ArgumentList.Add(trimmedPath);
+
+            GitLogService.Log($"$ git clone \"{gitUrl}\" \"{trimmedPath}\"");
+
+            using var proc = Process.Start(psi)
+                             ?? throw new InvalidOperationException("git.exe の起動に失敗しました。");
+            var output = proc.StandardOutput.ReadToEnd();
+            var error = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(120000); // クローンは時間がかかるため2分
+
+            if (!string.IsNullOrWhiteSpace(output))
+                GitLogService.Log($"  {output.Trim()}");
+
+            if (proc.ExitCode != 0)
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                    GitLogService.Log($"  [ERROR] {error.Trim()}");
+                throw new InvalidOperationException($"git clone に失敗しました:\n{error}");
+            }
+
+            // 成功時のstderrもログ出力（progressメッセージなど）
+            if (!string.IsNullOrWhiteSpace(error))
+                GitLogService.Log($"  {error.Trim()}");
         });
         _repositoryPath = localPath;
     }

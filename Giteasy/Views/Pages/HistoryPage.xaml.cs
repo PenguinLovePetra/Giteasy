@@ -33,11 +33,13 @@ public sealed partial class HistoryPage : Page
     private static readonly Color HeadColor = Color.FromArgb(255, 97, 175, 239);
     private static readonly Color BranchColor = Color.FromArgb(255, 152, 195, 121);
     private static readonly Color TagColor = Color.FromArgb(255, 229, 192, 123);
+    private static readonly Color RemoteColor = Color.FromArgb(255, 198, 120, 221);
 
-    private const double LaneWidth = 16.0;
-    private const double DotRadius = 4.5;
+    private const double LaneWidth = 14.0;
+    private const double DotRadius = 4.0;
     private const double LineThickness = 2.0;
-    private const double RowHeight = 42.0;
+    private const double RowHeight = 40.0;
+    private const double GraphPaddingLeft = 8.0;
 
     public HistoryPage(HistoryViewModel vm)
     {
@@ -65,7 +67,6 @@ public sealed partial class HistoryPage : Page
         var selected = (CommitListView.SelectedItem as GraphNode)?.Commit;
         _vm.SelectedCommit = selected;
         RevertBtn.IsEnabled = selected != null;
-        RevertHint.Visibility = selected == null ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void Revert_Click(object sender, RoutedEventArgs e)
@@ -81,8 +82,6 @@ public sealed partial class HistoryPage : Page
         if (args.InRecycleQueue) return;
         if (args.Item is not GraphNode node) return;
 
-        // VisualTree から Canvas と RefLabels を探す
-        args.Handled = true;
         args.RegisterUpdateCallback(DrawGraphCallback);
     }
 
@@ -90,26 +89,28 @@ public sealed partial class HistoryPage : Page
     {
         if (args.Item is not GraphNode node) return;
 
-        var container = args.ItemContainer;
-        var canvas = FindChild<Canvas>(container, "GraphCanvas");
-        var refLabels = FindChild<ItemsControl>(container, "RefLabels");
+        try
+        {
+            var container = args.ItemContainer;
+            var canvas = FindChild<Canvas>(container, "GraphCanvas");
+            var refLabels = FindChild<ItemsControl>(container, "RefLabels");
 
-        if (canvas == null) return;
+            if (canvas == null) return;
 
-        // Canvas をクリアして再描画
-        canvas.Children.Clear();
+            // Canvas をクリアして再描画
+            canvas.Children.Clear();
 
         // グラフ列の幅を動的に調整
-        var graphWidth = Math.Max(3, node.MaxLaneCount) * LaneWidth + 12;
-        // Canvas の親 Grid の最初の ColumnDefinition の幅を更新
+        var graphWidth = Math.Max(3, node.MaxLaneCount + 1) * LaneWidth + GraphPaddingLeft * 2;
         if (canvas.Parent is Grid parentGrid && parentGrid.ColumnDefinitions.Count > 0)
             parentGrid.ColumnDefinitions[0].Width = new GridLength(graphWidth);
         canvas.Width = graphWidth;
         canvas.Height = RowHeight;
 
         var centerY = RowHeight / 2.0;
+        var commitX = GetLaneX(node.Lane);
 
-        // 1. パススルーレーンの縦線を描画
+        // ── 1. パススルーレーンの完全な縦線を描画（行全体を上から下まで） ──
         foreach (var activeLane in node.ActiveLanes)
         {
             var x = GetLaneX(activeLane);
@@ -117,45 +118,78 @@ public sealed partial class HistoryPage : Page
             DrawLine(canvas, x, 0, x, RowHeight, color, LineThickness);
         }
 
-        // 2. エッジ（接続線）を描画
+        // ── 2. このコミットのレーンの上半分の線を描画（前のノードからの接続） ──
+        // 最初のコミットでない限り、自分のレーンの上から中央までの線を引く
+        bool hasUpwardConnection = false;
+
+        // IncomingEdgesにこのレーンへの到着があるか確認
+        foreach (var incoming in node.IncomingEdges)
+        {
+            if (incoming.FromLane == node.Lane && incoming.ToLane == node.Lane)
+            {
+                hasUpwardConnection = true;
+                break;
+            }
+        }
+
+        // ActiveLanesに自分自身は含まれないが、上から接続がある場合は縦線を引く
+        if (hasUpwardConnection || node.Index > 0)
+        {
+            // 前のノードがこのレーンを使っていた場合は上半分の線を引く
+            var prevNodeIdx = node.Index - 1;
+            if (prevNodeIdx >= 0 && prevNodeIdx < _vm.GraphNodes.Count)
+            {
+                var prevNode = _vm.GraphNodes[prevNodeIdx];
+                // 前のノードのEdgesの中に、このレーンに到着するエッジがあるか確認
+                bool connectedFromAbove = prevNode.Edges.Any(e => e.ToLane == node.Lane) ||
+                                           prevNode.ActiveLanes.Contains(node.Lane) ||
+                                           prevNode.Lane == node.Lane;
+                if (connectedFromAbove)
+                {
+                    var color = GetLaneColor(node.Lane);
+                    DrawLine(canvas, commitX, 0, commitX, centerY, color, LineThickness);
+                }
+            }
+        }
+
+        // ── 3. 上からの合流線（異なるレーンから来るIncomingEdges） ──
+        foreach (var incoming in node.IncomingEdges)
+        {
+            if (incoming.FromLane != node.Lane)
+            {
+                var fromX = GetLaneX(incoming.FromLane);
+                var toX = GetLaneX(node.Lane);
+                var color = GetLaneColor(incoming.ColorIndex);
+                // 上半分にベジェ曲線で合流
+                DrawBezierEdge(canvas, fromX, 0, toX, centerY, color);
+            }
+        }
+
+        // ── 4. 下方向のエッジ（親コミットへの分岐/直進） ──
         foreach (var edge in node.Edges)
         {
-            var fromX = GetLaneX(edge.FromLane);
+            var fromX = commitX;
             var toX = GetLaneX(edge.ToLane);
             var color = GetLaneColor(edge.ColorIndex);
 
             if (edge.FromLane == edge.ToLane)
             {
-                // 同じレーン → 直線
+                // 同じレーン → 下半分の直線
                 DrawLine(canvas, fromX, centerY, toX, RowHeight, color, LineThickness);
             }
             else
             {
-                // 異なるレーン → ベジェ曲線で滑らかに接続
+                // 異なるレーン → ベジェ曲線で分岐
                 DrawBezierEdge(canvas, fromX, centerY, toX, RowHeight, color);
-            }
-
-            // コミットドットからの上方向の縦線も描画
-            if (edge.FromLane == node.Lane)
-            {
-                // 上方向の線（前のコミットからの接続用は上から中央まで）
-                // → これはパススルーで処理されるか、最初のコミットなので不要
+                // 分岐先のレーンの下半分直線も描画（次の行でパススルーになるため）
+                // ただし次の行で描画されるアクティブレーンで処理される
             }
         }
 
-        // 第1親がある場合、上方向の線を描画（前のコミットへの接続）
-        if (node.Commit.ParentShas.Count > 0 || node.ActiveLanes.Contains(node.Lane))
-        {
-            // このレーンに上からの線が来ている場合
-            var x = GetLaneX(node.Lane);
-            var color = GetLaneColor(node.Lane);
-            DrawLine(canvas, x, 0, x, centerY, color, LineThickness);
-        }
+        // ── 5. コミットドットを描画（最前面） ──
+        DrawCommitDot(canvas, commitX, centerY, node);
 
-        // 3. コミットドットを描画（最前面）
-        DrawCommitDot(canvas, GetLaneX(node.Lane), centerY, node);
-
-        // 4. Refラベルの設定
+        // ── 6. Refラベルの設定 ──
         if (refLabels != null)
         {
             var labels = new List<FrameworkElement>();
@@ -165,21 +199,22 @@ public sealed partial class HistoryPage : Page
             }
             refLabels.ItemsSource = labels;
         }
+        }
+        catch (Exception ex)
+        {
+            // 描画エラーでアプリをクラッシュさせない
+            Services.GitLogService.Log($"[グラフ描画エラー] {ex.Message}");
+        }
     }
 
     private static double GetLaneX(int lane)
     {
-        return lane * LaneWidth + LaneWidth / 2.0 + 4;
-    }
-
-    private static SolidColorBrush GetLaneBrush(int index)
-    {
-        return new SolidColorBrush(LaneColors[index % LaneColors.Length]);
+        return lane * LaneWidth + LaneWidth / 2.0 + GraphPaddingLeft;
     }
 
     private static Color GetLaneColor(int index)
     {
-        return LaneColors[index % LaneColors.Length];
+        return LaneColors[Math.Abs(index) % LaneColors.Length];
     }
 
     /// <summary>直線を描画します。</summary>
@@ -202,19 +237,17 @@ public sealed partial class HistoryPage : Page
     private static void DrawBezierEdge(Canvas canvas, double fromX, double fromY,
         double toX, double toY, Color color)
     {
-        // コントロールポイントを計算して滑らかな曲線を作る
-        var midY = (fromY + toY) / 2.0;
-
         var pathFigure = new Microsoft.UI.Xaml.Media.PathFigure
         {
             StartPoint = new Windows.Foundation.Point(fromX, fromY),
         };
 
-        // S字カーブ: まずfromXで下がり、midYでtoXに遷移
+        // 滑らかなS字カーブ
+        var controlOffset = Math.Abs(toY - fromY) * 0.6;
         pathFigure.Segments.Add(new Microsoft.UI.Xaml.Media.BezierSegment
         {
-            Point1 = new Windows.Foundation.Point(fromX, midY),
-            Point2 = new Windows.Foundation.Point(toX, midY),
+            Point1 = new Windows.Foundation.Point(fromX, fromY + controlOffset),
+            Point2 = new Windows.Foundation.Point(toX, toY - controlOffset),
             Point3 = new Windows.Foundation.Point(toX, toY),
         });
 
@@ -228,6 +261,7 @@ public sealed partial class HistoryPage : Page
             StrokeThickness = LineThickness,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
         };
 
         canvas.Children.Add(path);
@@ -238,33 +272,37 @@ public sealed partial class HistoryPage : Page
     {
         var colorIndex = node.Lane;
         var color = GetLaneColor(colorIndex);
+        var isMerge = node.Commit.ParentShas.Count > 1;
 
-        // 外側の円（塗りつぶし）
+        var radius = isMerge ? DotRadius + 1.0 : DotRadius;
+
+        // 外側の円
         var dot = new Ellipse
         {
-            Width = DotRadius * 2,
-            Height = DotRadius * 2,
+            Width = radius * 2,
+            Height = radius * 2,
             Fill = new SolidColorBrush(color),
             Stroke = new SolidColorBrush(color),
-            StrokeThickness = 1.5,
+            StrokeThickness = 0,
         };
 
-        Canvas.SetLeft(dot, x - DotRadius);
-        Canvas.SetTop(dot, y - DotRadius);
+        Canvas.SetLeft(dot, x - radius);
+        Canvas.SetTop(dot, y - radius);
         canvas.Children.Add(dot);
 
-        // マージコミットは二重円にする
-        if (node.Commit.ParentShas.Count > 1)
+        // マージコミットは内側にドーナツ穴
+        if (isMerge)
         {
+            var innerRadius = radius * 0.45;
             var innerDot = new Ellipse
             {
-                Width = DotRadius * 1.2,
-                Height = DotRadius * 1.2,
-                Fill = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)), // 暗い背景
+                Width = innerRadius * 2,
+                Height = innerRadius * 2,
+                Fill = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
                 StrokeThickness = 0,
             };
-            Canvas.SetLeft(innerDot, x - DotRadius * 0.6);
-            Canvas.SetTop(innerDot, y - DotRadius * 0.6);
+            Canvas.SetLeft(innerDot, x - innerRadius);
+            Canvas.SetTop(innerDot, y - innerRadius);
             canvas.Children.Add(innerDot);
         }
     }
@@ -273,31 +311,63 @@ public sealed partial class HistoryPage : Page
     private static Border CreateRefLabel(string refName)
     {
         Color bgColor;
+        string displayName;
+        string iconGlyph;
+
         if (refName == "HEAD")
+        {
             bgColor = HeadColor;
+            displayName = "HEAD";
+            iconGlyph = "\uE72A"; // チェックマーク
+        }
         else if (refName.StartsWith("tag:"))
+        {
             bgColor = TagColor;
+            displayName = refName.StartsWith("tag: ") ? refName["tag: ".Length..] : refName[4..];
+            iconGlyph = "\uE8EC"; // タグ
+        }
         else
+        {
             bgColor = BranchColor;
+            displayName = refName;
+            iconGlyph = "\uE8AD"; // ブランチ
+        }
 
         var border = new Border
         {
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(5, 1, 5, 1),
-            Margin = new Thickness(0, 0, 2, 0),
-            Background = new SolidColorBrush(bgColor),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(0, 0, 4, 0),
+            Background = new SolidColorBrush(Color.FromArgb(40, bgColor.R, bgColor.G, bgColor.B)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(120, bgColor.R, bgColor.G, bgColor.B)),
+            BorderThickness = new Thickness(1),
+        };
+
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 3,
+        };
+
+        var icon = new FontIcon
+        {
+            Glyph = iconGlyph,
+            FontSize = 9,
+            Foreground = new SolidColorBrush(bgColor),
         };
 
         var text = new TextBlock
         {
-            Text = refName.StartsWith("tag: ") ? refName["tag: ".Length..] : refName,
+            Text = displayName,
             FontSize = 10,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.White),
+            Foreground = new SolidColorBrush(bgColor),
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        border.Child = text;
+        panel.Children.Add(icon);
+        panel.Children.Add(text);
+        border.Child = panel;
         return border;
     }
 
