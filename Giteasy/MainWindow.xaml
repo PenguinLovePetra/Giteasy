@@ -51,6 +51,11 @@
                         <FontIcon Glyph="&#xE710;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="自動クローン" Tag="AutoClone">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE896;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItemSeparator/>
                 <NavigationViewItem Content="ステータス" Tag="Status" Icon="Home">
                     <NavigationViewItem.InfoBadge>

@@ -19,6 +19,8 @@ public sealed partial class MainWindow : Window
     private readonly RepoSetupViewModel _repoSetupVm;
     private readonly ProjectsViewModel _projectsVm;
     private readonly LogViewModel _logVm;
+    private readonly AutoCloneService _autoCloneService;
+    private readonly AutoCloneViewModel _autoCloneVm;
 
     public MainWindow()
     {
@@ -41,6 +43,8 @@ public sealed partial class MainWindow : Window
         _repoSetupVm = new RepoSetupViewModel(_gitService);
         _projectsVm = new ProjectsViewModel(_gitService, _db);
         _logVm = new LogViewModel();
+        _autoCloneService = new AutoCloneService(_gitService, _db);
+        _autoCloneVm = new AutoCloneViewModel(_autoCloneService, _db);
 
         // 設定変更 → ステータスバー更新
         _settingsVm.SettingsChanged += UpdateStatusBar;
@@ -81,6 +85,10 @@ public sealed partial class MainWindow : Window
         // ウィンドウ参照
         _settingsVm.SetWindow(this);
         _repoSetupVm.SetWindow(this);
+        _autoCloneVm.SetWindow(this);
+
+        // AutoClone でプロジェクトが追加されたらリフレッシュ
+        _autoCloneVm.ProjectListChanged += () => _projectsVm.Refresh();
 
         // 設定読み込み & テーマ初期適用
         _settingsVm.LoadSettings();
@@ -105,6 +113,9 @@ public sealed partial class MainWindow : Window
                 break;
             case "RepoSetup":
                 ContentFrame.Content = new RepoSetupPage(_repoSetupVm);
+                break;
+            case "AutoClone":
+                ContentFrame.Content = new AutoClonePage(_autoCloneVm);
                 break;
             case "Status":
                 ContentFrame.Content = new StatusPage(_statusVm);
