@@ -19,6 +19,46 @@ public class GitService : IGitBackend
     private string? _userEmail;
     private IGitBackend? _externalBackend;
 
+    /// <summary>初期セットアップ時に生成する README.md のテンプレート。</summary>
+    internal const string ReadmeContent = @"# プロジェクト名
+
+このリポジトリは [GitEasy](https://github.com/PenguinLovePetra/Giteasy) で管理されています。
+
+## GitEasy の使い方
+
+### 基本操作
+1. **ステータス確認** — 変更されたファイルの一覧を確認します
+2. **ステージング** — コミットに含めたいファイルを選択します
+3. **コミット** — メッセージを入力して変更を記録します
+4. **同期（Push / Pull）** — リモートリポジトリと同期します
+
+### ブランチ操作
+- ブランチの作成・切替・マージ・削除が可能です
+
+### 履歴
+- コミット履歴の閲覧・Revert（取り消し）が可能です
+
+---
+
+## Git 用語ガイド（初心者向け）
+
+| 用語 | 説明 |
+|------|------|
+| **リポジトリ（Repository）** | プロジェクトの全ファイルと変更履歴を保管する場所です |
+| **コミット（Commit）** | ファイルの変更を「セーブポイント」として記録する操作です |
+| **ステージング（Staging）** | コミットに含めるファイルを選ぶ準備段階です |
+| **ブランチ（Branch）** | 本流から分岐して、別の作業を並行して進められる仕組みです |
+| **マージ（Merge）** | ブランチで行った変更を別のブランチに統合する操作です |
+| **プッシュ（Push）** | ローカルの変更をリモート（サーバー）にアップロードする操作です |
+| **プル（Pull）** | リモート（サーバー）の変更をローカルにダウンロードする操作です |
+| **クローン（Clone）** | リモートリポジトリをローカルにコピーする操作です |
+| **リモート（Remote）** | サーバー上にあるリポジトリのことです。通常 `origin` という名前で管理します |
+| **フェッチ（Fetch）** | リモートの更新情報を取得する操作です（ファイルはまだ反映されません） |
+| **リバート（Revert）** | 過去のコミットを打ち消す新しいコミットを作成する操作です |
+| **HEAD** | 現在チェックアウトしているブランチ・コミットを指す目印です |
+| **main** | メインのブランチ名です。プロジェクトの正式な状態を表します |
+";
+
     /// <summary>現在アクティブなバックエンドモード。</summary>
     public string ActiveBackendMode { get; private set; } = BackendModes.Builtin;
 
@@ -61,10 +101,19 @@ public class GitService : IGitBackend
     {
         get
         {
-            if (_externalBackend != null) return _externalBackend.CurrentBranchName;
-            if (!IsRepositorySet) return "未設定";
-            using var repo = new Repository(_repositoryPath);
-            return repo.Head?.FriendlyName ?? "不明";
+            try
+            {
+                if (_externalBackend != null) return _externalBackend.CurrentBranchName;
+                if (!IsRepositorySet) return "未設定";
+                using var repo = new Repository(_repositoryPath);
+                if (repo.Head == null || repo.Head.Reference == null)
+                    return "初期状態（コミットなし）";
+                return repo.Head.FriendlyName ?? "不明";
+            }
+            catch
+            {
+                return "不明";
+            }
         }
     }
 
@@ -118,17 +167,25 @@ public class GitService : IGitBackend
     {
         if (_externalBackend != null) return _externalBackend.GetChangedFiles();
         EnsureRepository();
-        using var repo = new Repository(_repositoryPath);
-        var status = repo.RetrieveStatus(new StatusOptions());
-        var changes = new List<FileChange>();
-
-        foreach (var entry in status)
+        try
         {
-            if (entry.State == FileStatus.Ignored)
-                continue;
-            changes.Add(new FileChange(entry.FilePath, entry.State));
+            using var repo = new Repository(_repositoryPath);
+            var status = repo.RetrieveStatus(new StatusOptions());
+            var changes = new List<FileChange>();
+
+            foreach (var entry in status)
+            {
+                if (entry.State == FileStatus.Ignored)
+                    continue;
+                changes.Add(new FileChange(entry.FilePath, entry.State));
+            }
+            return changes;
         }
-        return changes;
+        catch (Exception ex)
+        {
+            GitLogService.Log($"[ステータス取得エラー] {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -183,6 +240,11 @@ public class GitService : IGitBackend
         if (_externalBackend != null) { _externalBackend.DiscardChanges(filePaths); return; }
         EnsureRepository();
         using var repo = new Repository(_repositoryPath);
+
+        // 初期状態（コミットなし）の場合、checkoutできない
+        if (repo.Head?.Tip == null)
+            throw new InvalidOperationException("コミットがまだありません。変更を手動で削除してください。");
+
         var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
         foreach (var path in filePaths)
         {
@@ -337,6 +399,7 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// リモートURLがローカルパスの場合、bare リポジトリが存在しなければ自動初期化します。
+    /// HEAD は refs/heads/main に設定されます。
     /// </summary>
     private static void EnsureRemoteBareIfLocal(string remoteUrl)
     {
@@ -349,6 +412,9 @@ public class GitService : IGitBackend
         {
             Directory.CreateDirectory(remotePath);
             Repository.Init(remotePath, isBare: true);
+            // HEAD を main に設定
+            using var repo = new Repository(remotePath);
+            repo.Refs.UpdateTarget("HEAD", "refs/heads/main");
             return;
         }
 
@@ -356,6 +422,9 @@ public class GitService : IGitBackend
         if (!Repository.IsValid(remotePath))
         {
             Repository.Init(remotePath, isBare: true);
+            // HEAD を main に設定
+            using var repo = new Repository(remotePath);
+            repo.Refs.UpdateTarget("HEAD", "refs/heads/main");
         }
     }
 
@@ -423,6 +492,7 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// 新しいリポジトリを初期化し、オプションでリモートを設定します。
+    /// 初期ブランチを main に設定し、README.md を生成して初回コミット＆Pushを行います。
     /// リモートがローカルパスの場合、bare リポジトリを自動生成します。
     /// </summary>
     public async Task InitRepositoryAsync(string localPath, string? remoteUrl = null, bool autoInitBare = true)
@@ -436,6 +506,22 @@ public class GitService : IGitBackend
             Repository.Init(localPath);
             GitLogService.Log($"init: {localPath}");
 
+            // HEAD を main ブランチに変更（デフォルトの master → main）
+            using (var repo = new Repository(localPath))
+            {
+                repo.Refs.UpdateTarget("HEAD", "refs/heads/main");
+                GitLogService.Log("HEAD → refs/heads/main");
+            }
+
+            // README.md を生成
+            var readmePath = Path.Combine(localPath, "README.md");
+            if (!File.Exists(readmePath))
+            {
+                File.WriteAllText(readmePath, ReadmeContent);
+                GitLogService.Log("README.md 生成完了");
+            }
+
+            // リモートURL設定
             if (!string.IsNullOrWhiteSpace(remoteUrl))
             {
                 if (autoInitBare)
@@ -448,6 +534,46 @@ public class GitService : IGitBackend
                 else
                     repo.Network.Remotes.Add("origin", remoteUrl);
                 GitLogService.Log($"remote add origin {remoteUrl}");
+            }
+
+            // 初回コミット（README.md をステージングしてコミット）
+            using (var repo = new Repository(localPath))
+            {
+                Commands.Stage(repo, "README.md");
+                var user = GetUser();
+                var name = string.IsNullOrEmpty(user.Name) ? "GitEasy User" : user.Name;
+                var email = string.IsNullOrEmpty(user.Email) ? "giteasy@local" : user.Email;
+                var signature = new Signature(name, email, DateTimeOffset.Now);
+                repo.Commit("Initial commit", signature, signature);
+                GitLogService.Log("Initial commit 完了");
+            }
+
+            // 初回Push（リモートが設定されている場合）
+            if (!string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                try
+                {
+                    using var repo = new Repository(localPath);
+                    var origin = repo.Network.Remotes["origin"];
+                    if (origin != null)
+                    {
+                        repo.Network.Push(origin, "refs/heads/main");
+                        // upstream を設定
+                        var branch = repo.Branches["main"];
+                        if (branch != null)
+                        {
+                            repo.Branches.Update(branch,
+                                b => b.Remote = "origin",
+                                b => b.UpstreamBranch = "refs/heads/main");
+                        }
+                        GitLogService.Log("初回 Push 完了 (origin/main)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Push失敗はセットアップ全体を失敗にしない（後からPush可能）
+                    GitLogService.Log($"[初回Push警告] {ex.Message}");
+                }
             }
         });
 

@@ -14,18 +14,24 @@ public sealed partial class LogPage : Page
         _vm = vm;
     }
 
+    private bool _eventsRegistered;
+
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
         LogList.ItemsSource = _vm.LogEntries;
 
-        // 新しいログが追加されたらスクロール
-        _vm.LogEntries.CollectionChanged += (s, args) =>
+        if (!_eventsRegistered)
         {
-            if (_vm.LogEntries.Count > 0)
+            // 新しいログが追加されたらスクロール
+            _vm.LogEntries.CollectionChanged += (s, args) =>
             {
-                LogList.ScrollIntoView(_vm.LogEntries[_vm.LogEntries.Count - 1]);
-            }
-        };
+                if (_vm.LogEntries.Count > 0)
+                {
+                    LogList.ScrollIntoView(_vm.LogEntries[_vm.LogEntries.Count - 1]);
+                }
+            };
+            _eventsRegistered = true;
+        }
     }
 
     private void Clear_Click(object sender, RoutedEventArgs e)

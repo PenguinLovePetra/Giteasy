@@ -15,25 +15,31 @@ public sealed partial class StatusPage : Page
         FileListView.ItemsSource = _vm.ChangedFiles;
     }
 
+    private bool _eventsRegistered;
+
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _vm.SetXamlRoot(XamlRoot);
-        _vm.PropertyChanged += (s, args) =>
+        if (!_eventsRegistered)
         {
-            if (args.PropertyName == nameof(StatusViewModel.IsBusy))
+            _vm.PropertyChanged += (s, args) =>
             {
-                LoadingRing.IsActive = _vm.IsBusy;
-            }
-            if (args.PropertyName == nameof(StatusViewModel.StatusMessage))
+                if (args.PropertyName == nameof(StatusViewModel.IsBusy))
+                {
+                    LoadingRing.IsActive = _vm.IsBusy;
+                }
+                if (args.PropertyName == nameof(StatusViewModel.StatusMessage))
+                {
+                    StatusText.Text = _vm.StatusMessage;
+                }
+            };
+            _vm.ChangedFiles.CollectionChanged += (s, args) =>
             {
-                StatusText.Text = _vm.StatusMessage;
-            }
-        };
-        _vm.ChangedFiles.CollectionChanged += (s, args) =>
-        {
-            EmptyState.Visibility = _vm.ChangedFiles.Count == 0 && !_vm.IsBusy
-                ? Visibility.Visible : Visibility.Collapsed;
-        };
+                EmptyState.Visibility = _vm.ChangedFiles.Count == 0 && !_vm.IsBusy
+                    ? Visibility.Visible : Visibility.Collapsed;
+            };
+            _eventsRegistered = true;
+        }
         await _vm.RefreshAsync();
     }
 

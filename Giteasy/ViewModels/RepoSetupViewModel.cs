@@ -105,9 +105,9 @@ public partial class RepoSetupViewModel : ObservableObject
             var remoteUrl = string.IsNullOrWhiteSpace(InitRemoteUrl) ? null : InitRemoteUrl.Trim();
             await _git.InitRepositoryAsync(InitLocalPath.Trim(), remoteUrl, AutoInitBare);
 
-            var msg = "リポジトリを初期化しました。";
+            var msg = "リポジトリを初期化しました。\nREADME.md を生成し、Initial commit を作成しました。\nブランチ: main";
             if (remoteUrl != null)
-                msg += $"\nリモート 'origin' を設定しました:\n{remoteUrl}";
+                msg += $"\nリモート 'origin' を設定しました：\n{remoteUrl}";
 
             StatusMessage = "✓ " + msg;
             await DialogHelper.ShowInfoAsync(_xamlRoot, "リポジトリ作成完了", msg);

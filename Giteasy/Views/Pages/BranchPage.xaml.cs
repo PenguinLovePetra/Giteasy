@@ -16,16 +16,22 @@ public sealed partial class BranchPage : Page
         BranchListView.ItemsSource = _vm.Branches;
     }
 
+    private bool _eventsRegistered;
+
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _vm.SetXamlRoot(XamlRoot);
-        _vm.PropertyChanged += (s, args) =>
+        if (!_eventsRegistered)
         {
-            if (args.PropertyName == nameof(BranchViewModel.IsBusy))
-                LoadingRing.IsActive = _vm.IsBusy;
-            if (args.PropertyName == nameof(BranchViewModel.CurrentBranchName))
-                CurrentBranchText.Text = $"現在のブランチ: {_vm.CurrentBranchName}";
-        };
+            _vm.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(BranchViewModel.IsBusy))
+                    LoadingRing.IsActive = _vm.IsBusy;
+                if (args.PropertyName == nameof(BranchViewModel.CurrentBranchName))
+                    CurrentBranchText.Text = $"現在のブランチ: {_vm.CurrentBranchName}";
+            };
+            _eventsRegistered = true;
+        }
         await _vm.RefreshAsync();
     }
 

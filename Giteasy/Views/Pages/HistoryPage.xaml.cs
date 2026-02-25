@@ -48,14 +48,20 @@ public sealed partial class HistoryPage : Page
         CommitListView.ItemsSource = _vm.GraphNodes;
     }
 
+    private bool _eventsRegistered;
+
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _vm.SetXamlRoot(XamlRoot);
-        _vm.PropertyChanged += (s, args) =>
+        if (!_eventsRegistered)
         {
-            if (args.PropertyName == nameof(HistoryViewModel.IsBusy))
-                LoadingRing.IsActive = _vm.IsBusy;
-        };
+            _vm.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(HistoryViewModel.IsBusy))
+                    LoadingRing.IsActive = _vm.IsBusy;
+            };
+            _eventsRegistered = true;
+        }
         await _vm.RefreshAsync();
     }
 
@@ -294,11 +300,16 @@ public sealed partial class HistoryPage : Page
         if (isMerge)
         {
             var innerRadius = radius * 0.45;
+            // テーマに応じた背景色でドーナツ穴を描画
+            var bgBrush = Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(
+                "LayerFillColorDefaultBrush", out var res) && res is SolidColorBrush brush
+                ? brush
+                : new SolidColorBrush(Color.FromArgb(255, 30, 30, 30));
             var innerDot = new Ellipse
             {
                 Width = innerRadius * 2,
                 Height = innerRadius * 2,
-                Fill = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
+                Fill = bgBrush,
                 StrokeThickness = 0,
             };
             Canvas.SetLeft(innerDot, x - innerRadius);
