@@ -131,15 +131,23 @@ public sealed partial class MainWindow : Window
 
     private void UpdateStatusBar()
     {
-        if (_gitService.IsRepositorySet)
+        try
         {
-            BranchStatusText.Text = $"ブランチ: {_gitService.CurrentBranchName}";
-            RepoPathText.Text = _gitService.RepositoryPath ?? "";
+            if (_gitService.IsRepositorySet)
+            {
+                BranchStatusText.Text = $"ブランチ: {_gitService.CurrentBranchName}";
+                RepoPathText.Text = _gitService.RepositoryPath ?? "";
+            }
+            else
+            {
+                BranchStatusText.Text = "ブランチ: 未設定";
+                RepoPathText.Text = "設定画面からリポジトリを指定してください";
+            }
         }
-        else
+        catch
         {
-            BranchStatusText.Text = "ブランチ: 未設定";
-            RepoPathText.Text = "設定画面からリポジトリを指定してください";
+            BranchStatusText.Text = "ブランチ: 不明";
+            RepoPathText.Text = "";
         }
     }
 }

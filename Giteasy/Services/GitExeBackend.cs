@@ -80,17 +80,25 @@ public class GitExeBackend : IGitBackend
             var filePath = line[3..].Trim().Trim('"');
 
             // porcelain ステータスを LibGit2Sharp の FileStatus にマッピング
+            // 形式: XY (X=インデックス, Y=ワーキングツリー)
             var fileStatus = statusCode switch
             {
-                "M" => FileStatus.ModifiedInWorkdir,
+                // インデックス変更 + ワーキングツリー変更
                 "MM" => FileStatus.ModifiedInWorkdir,
-                "A" => FileStatus.NewInIndex,
                 "AM" => FileStatus.NewInIndex,
-                "D" => FileStatus.DeletedFromWorkdir,
-                "R" => FileStatus.RenamedInWorkdir,
-                "??" => FileStatus.NewInWorkdir,
+                // インデックスのみ変更（ステージ済み）
+                "M" => FileStatus.ModifiedInIndex,
+                "A" => FileStatus.NewInIndex,
+                "D" => FileStatus.DeletedFromIndex,
+                "R" => FileStatus.RenamedInIndex,
+                // ワーキングツリーのみ変更（未ステージ）
                 " M" => FileStatus.ModifiedInWorkdir,
                 " D" => FileStatus.DeletedFromWorkdir,
+                // 追跡外
+                "??" => FileStatus.NewInWorkdir,
+                // インデックス変更 + ワーキングツリー削除
+                "MD" => FileStatus.ModifiedInWorkdir,
+                "AD" => FileStatus.NewInIndex,
                 _ => FileStatus.Unaltered,
             };
 
@@ -305,24 +313,51 @@ public class GitExeBackend : IGitBackend
 
     public async Task InitRepositoryAsync(string localPath, string? remoteUrl = null)
     {
+        var safePath = localPath.Trim().Trim('"');
+        var safeUrl = remoteUrl?.Trim().Trim('"');
         await Task.Run(() =>
         {
-            if (!Directory.Exists(localPath))
-                Directory.CreateDirectory(localPath);
+            if (!Directory.Exists(safePath))
+                Directory.CreateDirectory(safePath);
 
-            RunGitOrThrow("init", localPath);
+            // 初期ブランチを main に設定
+            RunGitOrThrow("init -b main", safePath);
 
-            if (!string.IsNullOrWhiteSpace(remoteUrl))
+            // README.md を生成
+            var readmePath = Path.Combine(safePath, "README.md");
+            if (!File.Exists(readmePath))
+                File.WriteAllText(readmePath, GitService.ReadmeContent);
+
+            // リモートURL設定
+            if (!string.IsNullOrWhiteSpace(safeUrl))
             {
-                EnsureRemoteBareIfLocal(remoteUrl);
-                var check = RunGit("remote get-url origin", localPath);
+                EnsureRemoteBareIfLocal(safeUrl);
+                var check = RunGit("remote get-url origin", safePath);
                 if (check.ExitCode == 0)
-                    RunGitOrThrow($"remote set-url origin \"{remoteUrl}\"", localPath);
+                    RunGitOrThrow($"remote set-url origin \"{safeUrl}\"", safePath);
                 else
-                    RunGitOrThrow($"remote add origin \"{remoteUrl}\"", localPath);
+                    RunGitOrThrow($"remote add origin \"{safeUrl}\"", safePath);
+            }
+
+            // ユーザー設定（コミットに必要）
+            var userName = _userName ?? "GitEasy User";
+            var userEmail = _userEmail ?? "giteasy@local";
+            RunGit($"config user.name \"{userName}\"", safePath);
+            RunGit($"config user.email \"{userEmail}\"", safePath);
+
+            // 初回コミット
+            RunGitOrThrow("add README.md", safePath);
+            RunGitOrThrow("commit -m \"Initial commit\"", safePath);
+
+            // 初回Push（リモートが設定されている場合）
+            if (!string.IsNullOrWhiteSpace(safeUrl))
+            {
+                var pushResult = RunGit("push -u origin main", safePath);
+                if (pushResult.ExitCode != 0)
+                    GitLogService.Log($"[初回Push警告] {pushResult.Error}");
             }
         });
-        _repositoryPath = localPath;
+        _repositoryPath = safePath;
     }
 
     public async Task CloneRepositoryAsync(string remoteUrl, string localPath)
@@ -334,8 +369,9 @@ public class GitExeBackend : IGitBackend
 
         await Task.Run(() =>
         {
-            var trimmedUrl = remoteUrl.Trim();
-            var trimmedPath = localPath.Trim();
+            // URLサニタイズ: BOM・不可視文字・全角文字・引用符を除去
+            var trimmedUrl = SanitizeUrl(remoteUrl.Trim().Trim('"'));
+            var trimmedPath = localPath.Trim().Trim('"');
 
             var parent = Path.GetDirectoryName(trimmedPath) ?? trimmedPath;
             if (!Directory.Exists(parent))
@@ -385,9 +421,13 @@ public class GitExeBackend : IGitBackend
 
             using var proc = Process.Start(psi)
                              ?? throw new InvalidOperationException("git.exe の起動に失敗しました。");
-            var output = proc.StandardOutput.ReadToEnd();
-            var error = proc.StandardError.ReadToEnd();
+
+            // デッドロック防止: 出力を非同期で読み取ってからWaitForExit
+            var outputTask = proc.StandardOutput.ReadToEndAsync();
+            var errorTask = proc.StandardError.ReadToEndAsync();
             proc.WaitForExit(120000); // クローンは時間がかかるため2分
+            var output = outputTask.Result;
+            var error = errorTask.Result;
 
             if (!string.IsNullOrWhiteSpace(output))
                 GitLogService.Log($"  {output.Trim()}");
@@ -396,7 +436,10 @@ public class GitExeBackend : IGitBackend
             {
                 if (!string.IsNullOrWhiteSpace(error))
                     GitLogService.Log($"  [ERROR] {error.Trim()}");
-                throw new InvalidOperationException($"git clone に失敗しました:\n{error}");
+
+                // ユーザーに分かりやすいエラーメッセージを生成
+                var userMessage = FormatCloneError(error, gitUrl);
+                throw new InvalidOperationException(userMessage);
             }
 
             // 成功時のstderrもログ出力（progressメッセージなど）
@@ -408,14 +451,14 @@ public class GitExeBackend : IGitBackend
 
     // ─── ヘルパー ──────────────────────
 
-    private static void EnsureRemoteBareIfLocal(string remoteUrl)
+    private void EnsureRemoteBareIfLocal(string remoteUrl)
     {
         if (remoteUrl.Contains("://") || remoteUrl.Contains("@")) return;
         remoteUrl = remoteUrl.Trim().Trim('"');
         if (!Directory.Exists(remoteUrl))
         {
             Directory.CreateDirectory(remoteUrl);
-            var psi = new ProcessStartInfo("git", "init --bare")
+            var psi = new ProcessStartInfo(_gitExePath, "init --bare")
             {
                 WorkingDirectory = remoteUrl,
                 UseShellExecute = false,
@@ -423,9 +466,11 @@ public class GitExeBackend : IGitBackend
             };
             using var p = Process.Start(psi);
             p?.WaitForExit(10000);
+            // HEAD を main に設定
+            RunGit("symbolic-ref HEAD refs/heads/main", remoteUrl);
             return;
         }
-        var check = new ProcessStartInfo("git", "rev-parse --git-dir")
+        var check = new ProcessStartInfo(_gitExePath, "rev-parse --git-dir")
         {
             WorkingDirectory = remoteUrl,
             RedirectStandardOutput = true,
@@ -434,10 +479,15 @@ public class GitExeBackend : IGitBackend
             CreateNoWindow = true,
         };
         using var cp = Process.Start(check);
-        cp?.WaitForExit(5000);
+        if (cp != null)
+        {
+            cp.StandardOutput.ReadToEnd();
+            cp.StandardError.ReadToEnd();
+            cp.WaitForExit(5000);
+        }
         if (cp?.ExitCode != 0)
         {
-            var init = new ProcessStartInfo("git", "init --bare")
+            var init = new ProcessStartInfo(_gitExePath, "init --bare")
             {
                 WorkingDirectory = remoteUrl,
                 UseShellExecute = false,
@@ -445,6 +495,8 @@ public class GitExeBackend : IGitBackend
             };
             using var ip = Process.Start(init);
             ip?.WaitForExit(10000);
+            // HEAD を main に設定
+            RunGit("symbolic-ref HEAD refs/heads/main", remoteUrl);
         }
     }
 
@@ -471,9 +523,13 @@ public class GitExeBackend : IGitBackend
 
         using var proc = Process.Start(psi)
                          ?? throw new InvalidOperationException("git.exe の起動に失敗しました。");
-        var output = proc.StandardOutput.ReadToEnd();
-        var error = proc.StandardError.ReadToEnd();
+
+        // デッドロック防止: 出力を非同期で読み取ってからWaitForExit
+        var outputTask = proc.StandardOutput.ReadToEndAsync();
+        var errorTask = proc.StandardError.ReadToEndAsync();
         proc.WaitForExit(30000);
+        var output = outputTask.Result;
+        var error = errorTask.Result;
 
         // ログ記録
         GitLogService.Log($"$ git {arguments}");
@@ -491,5 +547,54 @@ public class GitExeBackend : IGitBackend
         if (result.ExitCode != 0)
             throw new InvalidOperationException(
                 $"git {arguments.Split(' ')[0]} に失敗しました:\n{result.Error}");
+    }
+
+    /// <summary>URLから不可視文字・BOM・全角文字を除去します。</summary>
+    private static string SanitizeUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return url;
+
+        // BOM除去
+        url = url.TrimStart('\uFEFF', '\u200B', '\u200C', '\u200D', '\uFEFF');
+
+        // 全角英数字 → 半角英数字 への変換
+        var sb = new System.Text.StringBuilder(url.Length);
+        foreach (var c in url)
+        {
+            if (c >= '！' && c <= '～')
+            {
+                // 全角ASCII → 半角ASCII（0xFF01-0xFF5E → 0x0021-0x007E）
+                sb.Append((char)(c - 0xFEE0));
+            }
+            else if (c == '　') // 全角スペース
+            {
+                sb.Append(' ');
+            }
+            else if (!char.IsControl(c) || c == '\t')
+            {
+                sb.Append(c);
+            }
+            // 制御文字はスキップ
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>クローンエラーメッセージを日本語で分かりやすく変換します。</summary>
+    private static string FormatCloneError(string error, string url)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return $"git clone に失敗しました。URL: {url}";
+
+        if (error.Contains("hostname contains invalid characters"))
+            return $"URLに不正な文字が含まれています。URLを確認してください。\n\n入力URL: {url}\n\n詳細: {error.Trim()}";
+        if (error.Contains("Could not resolve host"))
+            return $"ホスト名を解決できません。URLが正しいか、ネットワーク接続を確認してください。\n\n入力URL: {url}\n\n詳細: {error.Trim()}";
+        if (error.Contains("Permission denied") || error.Contains("access rights"))
+            return $"アクセス権限がありません。認証情報やSSHキーを確認してください。\n\n入力URL: {url}\n\n詳細: {error.Trim()}";
+        if (error.Contains("repository not found") || error.Contains("does not exist"))
+            return $"リポジトリが見つかりません。URLが正しいか確認してください。\n\n入力URL: {url}\n\n詳細: {error.Trim()}";
+
+        return $"クローンに失敗しました。\n\n入力URL: {url}\n\n詳細: {error.Trim()}";
     }
 }

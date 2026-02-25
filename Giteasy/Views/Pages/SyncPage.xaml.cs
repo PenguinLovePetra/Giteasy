@@ -14,21 +14,27 @@ public sealed partial class SyncPage : Page
         _vm = vm;
     }
 
+    private bool _eventsRegistered;
+
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _vm.SetXamlRoot(XamlRoot);
-        _vm.PropertyChanged += (s, args) =>
+        if (!_eventsRegistered)
         {
-            if (args.PropertyName == nameof(SyncViewModel.IsBusy))
+            _vm.PropertyChanged += (s, args) =>
             {
-                SyncProgress.IsIndeterminate = _vm.IsBusy;
-                SyncProgress.Visibility = _vm.IsBusy ? Visibility.Visible : Visibility.Collapsed;
-            }
-            if (args.PropertyName == nameof(SyncViewModel.StatusMessage))
-            {
-                StatusText.Text = _vm.StatusMessage;
-            }
-        };
+                if (args.PropertyName == nameof(SyncViewModel.IsBusy))
+                {
+                    SyncProgress.IsIndeterminate = _vm.IsBusy;
+                    SyncProgress.Visibility = _vm.IsBusy ? Visibility.Visible : Visibility.Collapsed;
+                }
+                if (args.PropertyName == nameof(SyncViewModel.StatusMessage))
+                {
+                    StatusText.Text = _vm.StatusMessage;
+                }
+            };
+            _eventsRegistered = true;
+        }
         _vm.Refresh();
     }
 

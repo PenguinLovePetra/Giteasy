@@ -66,6 +66,9 @@ public partial class SettingsViewModel : ObservableObject
     public void SetXamlRoot(XamlRoot root) => _xamlRoot = root;
     public void SetWindow(Window window) => _window = window;
 
+    /// <summary>SettingsPage等からWindow参照を取得するためのプロパティ。</summary>
+    public Window? Window => _window;
+
     /// <summary>DB から設定を読み込みます。</summary>
     public void LoadSettings()
     {
@@ -75,11 +78,22 @@ public partial class SettingsViewModel : ObservableObject
             UserName = _db.GetSetting("userName") ?? "";
             UserEmail = _db.GetSetting("userEmail") ?? "";
             SelectedTheme = _db.GetSetting("theme") ?? AppThemes.Light;
-            SelectedBackend = _db.GetSetting("gitBackend") ?? BackendModes.Builtin;
 
             // git.exe 検出
             IsGitExeAvailable = GitExeDetector.IsAvailable;
             GitExePath = GitExeDetector.DetectedPath ?? "見つかりません";
+
+            // バックエンド設定: DBに保存済みならそれを使用、未保存ならgit.exe優先
+            var savedBackend = _db.GetSetting("gitBackend");
+            if (savedBackend != null)
+            {
+                SelectedBackend = savedBackend;
+            }
+            else
+            {
+                // 初回起動: git.exeがあればsystemを優先（SSH認証等が自動利用可能）
+                SelectedBackend = IsGitExeAvailable ? BackendModes.System : BackendModes.Builtin;
+            }
 
             ApplySettingsToService();
         }

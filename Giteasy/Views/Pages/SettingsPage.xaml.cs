@@ -18,6 +18,8 @@ public sealed partial class SettingsPage : Page
         _vm = vm;
     }
 
+    private bool _eventsRegistered;
+
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _vm.SetXamlRoot(XamlRoot);
@@ -55,11 +57,16 @@ public sealed partial class SettingsPage : Page
         UserNameBox.Text = _vm.UserName;
         UserEmailBox.Text = _vm.UserEmail;
 
-        _vm.PropertyChanged += (s, args) =>
+        // イベントの重複登録を防止
+        if (!_eventsRegistered)
         {
-            if (args.PropertyName == nameof(SettingsViewModel.StatusMessage))
-                StatusText.Text = _vm.StatusMessage;
-        };
+            _vm.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(SettingsViewModel.StatusMessage))
+                    StatusText.Text = _vm.StatusMessage;
+            };
+            _eventsRegistered = true;
+        }
     }
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -84,10 +91,8 @@ public sealed partial class SettingsPage : Page
         _vm.UserEmail = UserEmailBox.Text;
         await _vm.SaveSettingsCommand.ExecuteAsync(null);
 
-        // テーマをランタイム適用
-        var window = _vm.GetType().GetField("_window",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(_vm) as Window;
+        // テーマをランタイム適用（リフレクション不要、VMのパブリックプロパティを使用）
+        var window = _vm.Window;
         if (window != null)
             App.ApplyTheme(window, _vm.SelectedTheme);
     }

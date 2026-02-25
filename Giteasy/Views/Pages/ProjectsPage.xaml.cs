@@ -50,4 +50,30 @@ public sealed partial class ProjectsPage : Page
         ProjectListView.Visibility = _vm.Projects.Count > 0
             ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private void GoToSetup_Click(object sender, RoutedEventArgs e)
+    {
+        // MainWindow の NavView を取得してセットアップタブに遷移
+        if (App.MainWindow?.Content is Grid rootGrid)
+        {
+            var navView = FindNavView(rootGrid);
+            if (navView != null && navView.MenuItems.Count > 1)
+            {
+                navView.SelectedItem = navView.MenuItems[1]; // Tag="RepoSetup"
+            }
+        }
+    }
+
+    private static NavigationView? FindNavView(DependencyObject parent)
+    {
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is NavigationView nav) return nav;
+            var result = FindNavView(child);
+            if (result != null) return result;
+        }
+        return null;
+    }
 }

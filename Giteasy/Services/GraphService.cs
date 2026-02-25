@@ -158,10 +158,16 @@ public static class GraphService
                 {
                     // このエッジは node の行の下半分から始まり、
                     // nextNode の行の上半分に到着する
-                    // → nextNode の IncomingEdges として到着側の情報を追加
-                    // ただし直線の場合（同レーン）で nextNode が実際にその親の場合のみ
-                    // 一般化：全エッジを nextNode の incoming として追加
-                    nextNode.IncomingEdges.Add(new GraphEdge(edge.ToLane, edge.ToLane, edge.ColorIndex));
+                    // FromLane = edge.ToLane（上のノードのエッジの到着レーンが、
+                    //                        次の行では出発レーンになる）
+                    // ToLane は nextNode のコミットレーンまたは通過レーン
+                    var incomingEdge = new GraphEdge(edge.ToLane, edge.ToLane, edge.ColorIndex);
+
+                    // ステップ2で追加済みの合流IncomingEdgesと重複しないようチェック
+                    bool isDuplicate = nextNode.IncomingEdges.Any(e =>
+                        e.FromLane == incomingEdge.FromLane && e.ToLane == incomingEdge.ToLane);
+                    if (!isDuplicate)
+                        nextNode.IncomingEdges.Add(incomingEdge);
                 }
             }
         }
