@@ -27,7 +27,6 @@ public sealed partial class AutoClonePage : Page
     {
         _vm.SetXamlRoot(XamlRoot);
         _vm.SetDispatcherQueue(DispatcherQueue);
-        UpdateWatchVisual();
         UpdateHistoryVisibility();
     }
 
@@ -43,26 +42,9 @@ public sealed partial class AutoClonePage : Page
         if (path != null) _vm.CloneBaseDirectory = path;
     }
 
-    private async void WatchToggle_Click(object sender, RoutedEventArgs e)
+    private async void CheckNow_Click(object sender, RoutedEventArgs e)
     {
-        await _vm.ToggleWatchingCommand.ExecuteAsync(null);
-        UpdateWatchVisual();
-    }
-
-    private void UpdateWatchVisual()
-    {
-        if (_vm.IsWatching)
-        {
-            WatchToggleText.Text = "監視を停止";
-            WatchIcon.Glyph = "\uE71A"; // Stop icon
-            StatusDot.Fill = new SolidColorBrush(Color.FromArgb(255, 0, 200, 83)); // Green
-        }
-        else
-        {
-            WatchToggleText.Text = "監視を開始";
-            WatchIcon.Glyph = "\uE768"; // Play icon
-            StatusDot.Fill = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"];
-        }
+        await _vm.CheckNowCommand.ExecuteAsync(null);
     }
 
     private void UpdateHistoryVisibility()

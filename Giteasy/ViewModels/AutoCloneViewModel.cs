@@ -21,17 +21,37 @@ public partial class AutoCloneViewModel : ObservableObject
 
     // ─── バインディングプロパティ ───────────
 
-    [ObservableProperty]
     private string _watchDirectory = "";
+    public string WatchDirectory
+    {
+        get => _watchDirectory;
+        set
+        {
+            if (SetProperty(ref _watchDirectory, value))
+            {
+                _db.SetSetting("autoclone_watch_dir", value.Trim());
+            }
+        }
+    }
 
-    [ObservableProperty]
     private string _cloneBaseDirectory = "";
+    public string CloneBaseDirectory
+    {
+        get => _cloneBaseDirectory;
+        set
+        {
+            if (SetProperty(ref _cloneBaseDirectory, value))
+            {
+                _db.SetSetting("autoclone_clone_dir", value.Trim());
+            }
+        }
+    }
 
     [ObservableProperty]
-    private bool _isWatching;
+    private string _statusMessage = "準備完了";
 
     [ObservableProperty]
-    private string _statusMessage = "監視は停止中です。";
+    private bool _isChecking;
 
     /// <summary>クローン履歴（UIバインディング用）。</summary>
     public ObservableCollection<AutoCloneLogEntry> CloneHistory { get; } = new();
@@ -45,8 +65,8 @@ public partial class AutoCloneViewModel : ObservableObject
         _db = db;
 
         // DB から前回の設定を復元
-        WatchDirectory = _db.GetSetting("autoclone_watch_dir") ?? "";
-        CloneBaseDirectory = _db.GetSetting("autoclone_clone_dir") ?? "";
+        _watchDirectory = _db.GetSetting("autoclone_watch_dir") ?? "";
+        _cloneBaseDirectory = _db.GetSetting("autoclone_clone_dir") ?? "";
 
         // イベント購読
         _autoCloneService.ProjectAutoCloned += OnProjectAutoCloned;
@@ -60,17 +80,9 @@ public partial class AutoCloneViewModel : ObservableObject
     // ─── コマンド ──────────────────────────
 
     [RelayCommand]
-    private async Task ToggleWatchingAsync()
+    private async Task CheckNowAsync()
     {
-        if (_xamlRoot == null) return;
-
-        if (IsWatching)
-        {
-            _autoCloneService.StopWatching();
-            IsWatching = false;
-            StatusMessage = "監視を停止しました。";
-            return;
-        }
+        if (_xamlRoot == null || IsChecking) return;
 
         // バリデーション
         if (string.IsNullOrWhiteSpace(WatchDirectory))
@@ -86,19 +98,22 @@ public partial class AutoCloneViewModel : ObservableObject
             return;
         }
 
+        IsChecking = true;
+        StatusMessage = "確認中...";
+
         try
         {
-            // 設定を保存
-            _db.SetSetting("autoclone_watch_dir", WatchDirectory.Trim());
-            _db.SetSetting("autoclone_clone_dir", CloneBaseDirectory.Trim());
-
-            _autoCloneService.StartWatching(WatchDirectory.Trim(), CloneBaseDirectory.Trim());
-            IsWatching = true;
-            StatusMessage = $"監視中: {WatchDirectory}";
+            await _autoCloneService.RunAutoCloneOnceAsync(WatchDirectory.Trim(), CloneBaseDirectory.Trim());
+            StatusMessage = $"確認完了 ({DateTime.Now:HH:mm:ss})";
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "監視開始エラー", ex.Message);
+            StatusMessage = "エラーが発生しました";
+            await DialogHelper.ShowErrorAsync(_xamlRoot, "確認エラー", ex.Message);
+        }
+        finally
+        {
+            IsChecking = false;
         }
     }
 
@@ -115,7 +130,7 @@ public partial class AutoCloneViewModel : ObservableObject
                 ClonePath = project.LocalPath,
                 Status = "✓ 成功",
             });
-            StatusMessage = $"最後のクローン: {project.Name} ({DateTime.Now:HH:mm:ss})";
+            StatusMessage = $"クローン成功: {project.Name} ({DateTime.Now:HH:mm:ss})";
             ProjectListChanged?.Invoke();
         });
     }

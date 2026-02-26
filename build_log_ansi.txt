@@ -1,0 +1,13 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\MainWindow.xaml.cs(99,14): error CS1061: 'MainWindow' does not contain a definition for 'Loaded' and no accessible extension method 'Loaded' accepting a first argument of type 'MainWindow' could be found (are you missing a using directive or an assembly reference?) [c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\Giteasy.csproj]
+C:\Users\kiriy\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\Microsoft.UI.Xaml.Markup.Compiler.interop.targets(845,9): error MSB3073: The command ""C:\Users\kiriy\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\..\tools\net6.0\..\net472\XamlCompiler.exe" "obj\Debug\net8.0-windows10.0.19041.0\\input.json" "obj\Debug\net8.0-windows10.0.19041.0\\output.json"" exited with code 1. [c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\Giteasy.csproj]
+
+Build FAILED.
+
+c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\MainWindow.xaml.cs(99,14): error CS1061: 'MainWindow' does not contain a definition for 'Loaded' and no accessible extension method 'Loaded' accepting a first argument of type 'MainWindow' could be found (are you missing a using directive or an assembly reference?) [c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\Giteasy.csproj]
+C:\Users\kiriy\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\Microsoft.UI.Xaml.Markup.Compiler.interop.targets(845,9): error MSB3073: The command ""C:\Users\kiriy\.nuget\packages\microsoft.windowsappsdk.winui\1.8.260204000\buildTransitive\..\tools\net6.0\..\net472\XamlCompiler.exe" "obj\Debug\net8.0-windows10.0.19041.0\\input.json" "obj\Debug\net8.0-windows10.0.19041.0\\output.json"" exited with code 1. [c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\Giteasy.csproj]
+    0 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:04.11

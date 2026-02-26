@@ -8,14 +8,13 @@ using Giteasy.Models;
 namespace Giteasy.Services;
 
 /// <summary>
-/// 監視ディレクトリ内に新しい Git bare リポジトリが作成されたとき、
-/// 自動的にクローンしてプロジェクト一覧に登録するサービスです。
+/// 指定ディレクトリ内の Git bare リポジトリを走査し、
+/// 未クローンのものを一括でクローンしてプロジェクト一覧に登録するサービスです。
 /// </summary>
-public class AutoCloneService : IDisposable
+public class AutoCloneService
 {
     private readonly GitService _git;
     private readonly DatabaseService _db;
-    private FileSystemWatcher? _watcher;
     private readonly HashSet<string> _processing = new();
     private readonly object _lock = new();
 
@@ -25,9 +24,6 @@ public class AutoCloneService : IDisposable
     /// <summary>エラー発生時に発火。</summary>
     public event Action<string>? ErrorOccurred;
 
-    /// <summary>現在監視中かどうか。</summary>
-    public bool IsWatching => _watcher?.EnableRaisingEvents == true;
-
     public AutoCloneService(GitService git, DatabaseService db)
     {
         _git = git;
@@ -35,51 +31,35 @@ public class AutoCloneService : IDisposable
     }
 
     /// <summary>
-    /// 指定したディレクトリの監視を開始します。
-    /// 新規サブディレクトリが bare リポジトリであればクローンを実行します。
+    /// 指定したディレクトリ内のすべてのサブディレクトリをチェックし、
+    /// bare リポジトリであればクローンを実行します（1回のみ実行）。
     /// </summary>
     /// <param name="watchDir">監視対象ディレクトリ（bare リポジトリが作成される親ディレクトリ）</param>
     /// <param name="cloneBaseDir">クローン先のベースディレクトリ</param>
-    public void StartWatching(string watchDir, string cloneBaseDir)
+    public async Task RunAutoCloneOnceAsync(string watchDir, string cloneBaseDir)
     {
-        StopWatching();
+        if (string.IsNullOrWhiteSpace(watchDir) || string.IsNullOrWhiteSpace(cloneBaseDir))
+            return;
 
-        if (!Directory.Exists(watchDir))
-            Directory.CreateDirectory(watchDir);
-        if (!Directory.Exists(cloneBaseDir))
-            Directory.CreateDirectory(cloneBaseDir);
+        if (!Directory.Exists(watchDir) || !Directory.Exists(cloneBaseDir))
+            return;
 
-        _watcher = new FileSystemWatcher(watchDir)
+        GitLogService.Log($"[AutoClone] 起動時/一括チェック開始: {watchDir}");
+
+        try
         {
-            NotifyFilter = NotifyFilters.DirectoryName,
-            IncludeSubdirectories = false,
-            EnableRaisingEvents = true,
-        };
-
-        _watcher.Created += async (_, e) =>
-        {
-            // ディレクトリのみ処理
-            if (!Directory.Exists(e.FullPath)) return;
-
-            // bare リポ判定に遅延を入れる（init 完了を待つ）
-            await Task.Delay(2000);
-
-            await TryAutoCloneAsync(e.FullPath, cloneBaseDir);
-        };
-
-        GitLogService.Log($"[AutoClone] 監視開始: {watchDir}");
-    }
-
-    /// <summary>監視を停止します。</summary>
-    public void StopWatching()
-    {
-        if (_watcher != null)
-        {
-            _watcher.EnableRaisingEvents = false;
-            _watcher.Dispose();
-            _watcher = null;
-            GitLogService.Log("[AutoClone] 監視停止");
+            var directories = Directory.GetDirectories(watchDir);
+            foreach (var dir in directories)
+            {
+                await TryAutoCloneAsync(dir, cloneBaseDir);
+            }
         }
+        catch (Exception ex)
+        {
+            GitLogService.Log($"[AutoClone] チェック中にエラー発生: {ex.Message}");
+        }
+        
+        GitLogService.Log("[AutoClone] 起動時/一括チェック完了");
     }
 
     /// <summary>
@@ -99,8 +79,7 @@ public class AutoCloneService : IDisposable
             // bare リポジトリかどうかの判定（HEAD ファイルの存在）
             if (!IsBareRepository(repoPath))
             {
-                GitLogService.Log($"[AutoClone] bare リポジトリではないためスキップ: {repoPath}");
-                return;
+                return; // ログ抑制のため静かにスキップ
             }
 
             var repoName = Path.GetFileName(repoPath);
@@ -115,7 +94,7 @@ public class AutoCloneService : IDisposable
             // 既にクローン済みならスキップ
             if (Directory.Exists(clonePath) && Directory.GetFileSystemEntries(clonePath).Length > 0)
             {
-                GitLogService.Log($"[AutoClone] 既にクローン済み: {clonePath}");
+                // 静かにスキップ
                 return;
             }
 
@@ -165,11 +144,5 @@ public class AutoCloneService : IDisposable
         return File.Exists(headFile)
             && Directory.Exists(objectsDir)
             && Directory.Exists(refsDir);
-    }
-
-    public void Dispose()
-    {
-        StopWatching();
-        GC.SuppressFinalize(this);
     }
 }

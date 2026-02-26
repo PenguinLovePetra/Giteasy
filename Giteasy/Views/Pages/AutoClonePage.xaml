@@ -60,31 +60,33 @@
                 </Button>
             </Grid>
 
-            <!-- 監視コントロール -->
+        <!-- 監視コントロール -->
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <ToggleButton x:Name="WatchToggle"
-                              Click="WatchToggle_Click"
-                              IsChecked="{x:Bind _vm.IsWatching, Mode=OneWay}"
-                              MinWidth="140">
+                <Button x:Name="CheckNowButton"
+                        Click="CheckNow_Click"
+                        IsEnabled="{x:Bind _vm.IsChecking, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}"
+                        MinWidth="140">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon x:Name="WatchIcon" Glyph="&#xE768;" FontSize="14"/>
-                        <TextBlock x:Name="WatchToggleText" Text="監視を開始"/>
+                        <FontIcon Glyph="&#xE895;" FontSize="14"/>
+                        <TextBlock Text="今すぐ確認"/>
                     </StackPanel>
-                </ToggleButton>
+                </Button>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
-                    <Ellipse x:Name="StatusDot" Width="10" Height="10"
-                             Fill="{ThemeResource TextFillColorTertiaryBrush}"/>
                     <TextBlock x:Name="StatusText"
                                Text="{x:Bind _vm.StatusMessage, Mode=OneWay}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                VerticalAlignment="Center"/>
+                    <ProgressRing IsActive="{x:Bind _vm.IsChecking, Mode=OneWay}" 
+                                  Width="16" Height="16" 
+                                  VerticalAlignment="Center"
+                                  Margin="8,0,0,0" />
                 </StackPanel>
             </Grid>
         </StackPanel>

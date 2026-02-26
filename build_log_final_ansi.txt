@@ -1,0 +1,9 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Giteasy -> c:\Users\kiriy\source\repos\GitEasy\Giteasy\Giteasy\bin\Debug\net8.0-windows10.0.19041.0\Giteasy.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.70

@@ -96,9 +96,20 @@ public sealed partial class MainWindow : Window
         UpdateStatusBar();
     }
 
-    private void NavView_Loaded(object sender, RoutedEventArgs e)
+    private async void NavView_Loaded(object sender, RoutedEventArgs e)
     {
         NavView.SelectedItem = NavView.MenuItems[0];
+
+        // 起動時に1度だけ AutoClone のチェックを走らせる
+        try
+        {
+            // UIツリーの準備が整ってから実行する
+            if (_autoCloneVm.CheckNowCommand.CanExecute(null))
+            {
+                await _autoCloneVm.CheckNowCommand.ExecuteAsync(null);
+            }
+        }
+        catch { /* 初回スキャンエラーは無視する */ }
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
