@@ -26,10 +26,6 @@
 
     <!-- Publish Properties -->
   <PropertyGroup>
-    <!-- 開発環境がないPCでそのままEXEを起動できるようにする設定 -->
-    <WindowsPackageType>None</WindowsPackageType>
-    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-    
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
     <!-- WinUI 3でのサイレントクラッシュを防ぐためトリミングは無効化 -->
