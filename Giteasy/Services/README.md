@@ -1,29 +1,60 @@
 # Services
 
-## 📁 役割と機能 (Role & Functions)
+## 📁 役割と責務
 
-アプリケーションの主要なビジネスロジック、外部ライブラリとの連携、データ永続化（DBアクセス）、および外部プロセス（git.exe）の呼び出しを担当するディレクトリです。
+Git 操作、データ永続化、ユーティリティなどのビジネスロジックを提供するサービス群です。
+ViewModel から呼ばれ、View から直接参照されることはありません。
 
-- **`GitService`**:
-  `LibGit2Sharp` をベースにした Git 操作のプライマリーラッパーです。リポジトリパスの管理とステータス取得を主眼に置きます。
-- **`GitExeBackend`**:
-  `LibGit2Sharp` ではサポートが難しい機能（主にSSH認証や認証情報の再利用など）を補完するために、外部プロセスとして `git.exe` を直接叩くクラスです。
-- **`DatabaseService`**:
-  `LiteDB` を用いたローカルデータベース操作（設定情報やプロジェクト一覧の保存）を提供します。
-- **`GraphService`**:
-  Gitのコミット履歴から分岐（Graph）のレーン情報を計算・生成するロジックを担当します。
-- **`GitLogService`**:
-  アプリ全体のログ（デバッグメッセージやエラー、Gitコマンドの出力）を収集し、UI（LogPage）に伝達します。
+## ファイル構成
 
-## ⚠️ 技術的負債と既知の課題 (Technical Debt & Known Issues)
+### Git 操作コア
 
-- **バックエンドの二重管理 (LibGit2Sharp vs git.exe)**:
-  現在、Git操作が `GitService` と `GitExeBackend` の2つに分散しています。本来は `IGitBackend` などのインターフェースで抽象化すべきですが、両者のメソッドが直結していたり、一部の処理（例：Fetch/Initial Commit）で直接呼び分けが発生したりしているため、将来的なメンテナンスコスト増加のリスク（保守性の悪化）があります。
-- **エラーハンドリングの不一致**:
-  Git操作中の例外やエラー出力の扱いがメソッドによって異なります（`throw` するものと `GitLogService` に流すだけのものが混在）。
-- **状態の持ち方**:
-  `GitService` が現在のリポジトリパス (`RepositoryPath`) などの状態を内部で保持するステートフルな設計になっており、DIやテスト容易性を低下させています。
+| ファイル           | 説明                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `IGitBackend.cs`   | Git 操作の共通インターフェース。全バックエンドが実装する契約                                                     |
+| `GitService.cs`    | メイン Git サービス。LibGit2Sharp をデフォルトバックエンドとして使用し、git.exe に切替可能。`IGitBackend` を実装 |
+| `GitExeBackend.cs` | git.exe を `Process.Start` で呼び出すバックエンド。SSH 認証やクレデンシャルヘルパーが自動的に利用される          |
+| `BackendModes.cs`  | バックエンドモード定数（`"builtin"` / `"system"`）                                                               |
 
-## 📝 更新ルール (Update Rules)
+### 補助サービス
 
-**【重要】今後このディレクトリに新しいサービスやロジックを追加した際は、必ずこの README の「役割と機能」や「技術的負債」のリバースエンジニアリング情報に構成図や課題を追記・修正を行ってください。**
+| ファイル              | 説明                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GitExeDetector.cs`   | PC 上の `git.exe` を検出する静的ユーティリティ。`where git` コマンドで検索し結果をキャッシュ           |
+| `GitLogService.cs`    | Git コマンド実行ログの記録。`ObservableCollection` で UI バインド可能。スレッドセーフ                  |
+| `GraphService.cs`     | コミット履歴からグラフノード（レーン配置・エッジ情報）を構築。Git Graph 可視化用                       |
+| `DatabaseService.cs`  | SQLite によるデータ永続化。プロジェクト CRUD と設定 KVS を提供                                         |
+| `AutoCloneService.cs` | `FileSystemWatcher` で監視ディレクトリ内の新規 bare リポジトリを検出し、自動クローン＆プロジェクト登録 |
+
+## 設計方針
+
+### デュアルバックエンド戦略
+
+```
+ViewModel → GitService (IGitBackend)
+                 ├── LibGit2Sharp (builtin) — デフォルト、ライブラリ内蔵
+                 └── GitExeBackend (system) — SSH認証自動利用、日本語パス対応
+```
+
+- `GitService` は各メソッドの先頭で `_externalBackend` の有無をチェックし、設定されていれば委譲
+- `GitExeBackend` は `ProcessStartInfo` で git.exe を呼び出し、出力をパース
+- 両バックエンドは `IGitBackend` インターフェースを満たす
+
+### データベース設計
+
+SQLite に2テーブル:
+
+- **Projects** — 登録済みプロジェクト情報（Id, Name, LocalPath, RemoteUrl, CreatedAt, LastOpenedAt）
+- **Settings** — Key-Value ストア（テーマ、バックエンド選択、AutoClone設定等）
+
+## ⚠️ 技術的負債
+
+- `GitService` が `IGitBackend` を実装しつつ内部でバックエンド委譲も行う二重構造
+- `DatabaseService` は接続プーリングなし（毎回 `new SqliteConnection`）。現状の規模では問題なし
+- `GitExeBackend` が `LibGit2Sharp.FileStatus` 列挙型を共有参照している（Models の `FileChange` 経由）
+
+## 🔧 拡張ガイド
+
+- **新しい Git 操作の追加**: `IGitBackend` にメソッド定義 → `GitService` と `GitExeBackend` の両方に実装
+- **新しいサービスの追加**: このディレクトリに作成。名前空間は `Giteasy.Services`。`MainWindow.xaml.cs` でインスタンス化
+- **設定の追加**: `DatabaseService.GetSetting` / `SetSetting` を使用（キー名の命名規則: `snake_case`）

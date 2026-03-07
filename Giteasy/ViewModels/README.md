@@ -1,24 +1,38 @@
 # ViewModels
 
-## 📁 役割と機能 (Role & Functions)
+## 📁 役割と責務
 
-MVVM (Model-View-ViewModel) アーキテクチャにおける ViewModel 層を担当します。
-`CommunityToolkit.Mvvm` パッケージを活用し、`ObservableObject` の継承によるプロパティ変更通知（`INotifyPropertyChanged`）と、`[RelayCommand]` によるコマンドバインディングを提供します。
+MVVM パターンの ViewModel 層。View（Page）と Service の間を仲介し、UI ロジック・コマンド・状態管理を担います。
+`CommunityToolkit.Mvvm` の `ObservableObject` を基底クラスとし、`[ObservableProperty]` / `[RelayCommand]` 属性を活用しています。
 
-- **状態管理 (State Management)**:
-  `Services` 層から取得したデータ（BranchList, CommitHistory 等）を保持し、View（XAML）がバインディング可能な形に変換・提供します。
-- **画面単位の分割**:
-  各ナビゲーションページ（BranchPage, StatusPage, HistoryPage 等）に対して、対応する `XxxViewModel` が存在します。
+## ファイル構成
 
-## ⚠️ 技術的負債と既知の課題 (Technical Debt & Known Issues)
+| ファイル                | 対応ページ    | 説明                                                                            |
+| ----------------------- | ------------- | ------------------------------------------------------------------------------- |
+| `ProjectsViewModel.cs`  | ProjectsPage  | プロジェクト一覧の表示・切替・削除                                              |
+| `RepoSetupViewModel.cs` | RepoSetupPage | リポジトリの新規作成（init）・クローン                                          |
+| `AutoCloneViewModel.cs` | AutoClonePage | bare リポジトリ監視＆自動クローン。`AutoCloneLogEntry` モデルも同ファイルに定義 |
+| `StatusViewModel.cs`    | StatusPage    | 変更ファイル一覧・ステージング・コミット・変更破棄                              |
+| `BranchViewModel.cs`    | BranchPage    | ブランチ一覧・作成・チェックアウト・マージ・削除                                |
+| `SyncViewModel.cs`      | SyncPage      | Fetch / Pull / Push                                                             |
+| `HistoryViewModel.cs`   | HistoryPage   | コミット履歴・グラフ表示・Revert                                                |
+| `SettingsViewModel.cs`  | SettingsPage  | リポジトリパス・ユーザー情報・テーマ・バックエンド設定                          |
+| `LogViewModel.cs`       | LogPage       | Git 操作ログの表示・クリア                                                      |
 
-- **ビューへの強結合 (View Dependency)**:
-  `RepoSetupViewModel` など一部の ViewModel が `XamlRoot` や `Window` オブジェクトへの直接的な参照を持っており（`SetXamlRoot` 等）、MVVMの原則である「Viewを知らないこと」から逸脱しています。ダイアログ表示において `IDialogService` への分離が必要です。
-- **肥大化 (Fat ViewModel)**:
-  `SettingsViewModel` や `MainWindow` に紐づく状態管理が、UIのロジックだけでなく一部のビジネスロジックまで抱え込む傾向にあります。
-- **同期と非同期の混在**:
-  `RelayCommand` で呼び出される非同期バックグラウンド処理（Git連携など）のタスク管理やキャンセル機構が不十分であり、連打対応（`IsBusy`フラグの一貫性）などが各VMごとに手動実装されています。
+## 設計方針
 
-## 📝 更新ルール (Update Rules)
+- **1 View : 1 ViewModel** の対応関係
+- **コマンドパターン**: 非同期操作は `[RelayCommand]` + `async Task` メソッドで実装。`IsBusy` プロパティで多重実行を防止
+- **イベント通知**: ViewModel 間の連携は `event Action` を使用（例: `ProjectOpened`, `SetupCompleted`, `ThemeChanged`）
+- **XamlRoot 注入**: `SetXamlRoot(XamlRoot)` メソッドで ContentDialog 表示用の参照を取得
+- **エラーハンドリング**: 全コマンドで try-catch → `DialogHelper` でユーザーフレンドリーなダイアログ表示
 
-**【重要】今後このディレクトリに新しい ViewModel を追加した際は、必ずこの README の「役割と機能」や「技術的負債」に追記・修正を行ってください。View依存のコードを入れた場合はその理由も明記してください。**
+## ⚠️ 技術的負債
+
+- `AutoCloneLogEntry` が `AutoCloneViewModel.cs` 内に定義されている（Models に移動すべき可能性あり）
+- 一部の ViewModel が `Window` 参照を保持（`FolderPicker` の `InitializeWithWindow` 用）。テスタビリティの低下要因
+
+## 🔧 拡張ガイド
+
+- **新 ViewModel の追加**: `ObservableObject` を継承 → 名前空間 `Giteasy.ViewModels` → `MainWindow.xaml.cs` でインスタンス化
+- **コマンドの追加**: `[RelayCommand]` 属性付き `private async Task XxxAsync()` メソッドを定義。XAML から `{x:Bind ViewModel.XxxCommand}` でバインド

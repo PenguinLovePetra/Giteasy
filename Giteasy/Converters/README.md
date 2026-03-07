@@ -1,18 +1,26 @@
 # Converters
 
-## 📁 役割と機能 (Role & Functions)
+## 📁 役割と責務
 
-XAMLでのデータバインディング時に、ViewModelのプロパティ値（bool, string, enum等）を表示用の型（Visibility, Brush, string等）に変換するための `IValueConverter` 実装クラスを配置するディレクトリです。
+XAML データバインディングで使用される値コンバーター（`IValueConverter`）を定義するディレクトリです。
+View 層でのみ参照され、Model/ViewModel の値を UI 表示用に変換します。
 
-- **`BooleanToVisibilityConverter`** 等（現在実装されているものに合わせて追加）: データ駆動UIを支えるための基本的なパッシブ変換ロジックです。
+## ファイル構成
 
-## ⚠️ 技術的負債と既知の課題 (Technical Debt & Known Issues)
+| クラス                        | 説明                                                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `HexColorToBrushConverter`    | Hex カラー文字列（例: `#4CAF50`）を `SolidColorBrush` に変換。ファイル変更ステータスの色表示に使用 |
+| `InverseBoolConverter`        | `bool` 値を反転。`IsBusy` の逆で UI の有効/無効を切替える際に使用                                  |
+| `StringToVisibilityConverter` | 空でない文字列なら `Visible`、空なら `Collapsed`。ステータスメッセージの表示制御に使用             |
 
-- **再利用性と乱立**:
-  類似のコンバーター（例: `InverseBooleanConverter` と `BooleanToVisibilityConverter` の組み合わせ等）が散在する可能性があります。パラメータ化によって統一できるものは統合の余地があります。
-- **型安全性の欠如**:
-  `Convert` メソッドの引数は `object` 型であるため、キャストエラーが実行時まで判明しません。より厳密なViewModelバインディングによるConverter回避も検討すべきアーキテクチャ上の課題です。
+※ 全コンバーターは `Converters.cs` に定義されています（1ファイル複数クラス）。
 
-## 📝 更新ルール (Update Rules)
+## 設計方針
 
-**【重要】今後このディレクトリに新しいコンバーターを追加した際は、必ずこの README の「役割と機能」に用途を追記・修正を行ってください。人間が一目で変換ルールを把握できる状態を維持してください。**
+- XAML リソースとして `App.xaml` に登録し、全ページから利用可能
+- 再利用性の高い汎用コンバーターのみを定義
+
+## 🔧 拡張ガイド
+
+- **新コンバーターの追加**: `Converters.cs` に `IValueConverter` を実装するクラスを追加 → `App.xaml` にリソース登録
+- **ファイル分割**: コンバーターが増えた場合は、クラスごとにファイルを分割することを検討
