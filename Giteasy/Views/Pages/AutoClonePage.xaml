@@ -16,7 +16,7 @@
         <Grid Grid.Row="0">
             <StackPanel>
                 <TextBlock Text="自動クローン" Style="{StaticResource TitleTextBlockStyle}"/>
-                <TextBlock Text="監視ディレクトリに新しい bare リポジトリが作成されると、自動でクローンしてプロジェクトに登録します。"
+                <TextBlock Text="アプリ起動時に監視ディレクトリをチェックし、新しい bare リポジトリがあれば自動でクローンしてプロジェクトに登録します。"
                            Style="{StaticResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Margin="0,4,0,0"
@@ -33,7 +33,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="WatchDirBox"
-                         Header="監視ディレクトリ（bare リポジトリが作られるフォルダ）"
+                         Header="監視ディレクトリ（bare リポジトリが格納されるフォルダ）"
                          PlaceholderText="例: C:\Repos\RemoteBare"
                          Text="{x:Bind _vm.WatchDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 <Button Grid.Column="1" VerticalAlignment="Bottom"
@@ -60,31 +60,45 @@
                 </Button>
             </Grid>
 
-            <!-- 監視コントロール -->
+            <!-- アクションボタン -->
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <ToggleButton x:Name="WatchToggle"
-                              Click="WatchToggle_Click"
-                              IsChecked="{x:Bind _vm.IsWatching, Mode=OneWay}"
-                              MinWidth="140">
+                <Button x:Name="SaveButton"
+                        Click="SaveSettings_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        MinWidth="120">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon x:Name="WatchIcon" Glyph="&#xE768;" FontSize="14"/>
-                        <TextBlock x:Name="WatchToggleText" Text="監視を開始"/>
+                        <FontIcon Glyph="&#xE74E;" FontSize="14"/>
+                        <TextBlock Text="設定を保存"/>
                     </StackPanel>
-                </ToggleButton>
+                </Button>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                <Button x:Name="CheckNowButton"
+                        Grid.Column="1"
+                        Click="CheckNow_Click"
+                        IsEnabled="{x:Bind _vm.IsChecking, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}"
+                        MinWidth="160">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE895;" FontSize="14"/>
+                        <TextBlock Text="今すぐチェック"/>
+                    </StackPanel>
+                </Button>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
-                    <Ellipse x:Name="StatusDot" Width="10" Height="10"
-                             Fill="{ThemeResource TextFillColorTertiaryBrush}"/>
+                    <ProgressRing x:Name="ScanProgress"
+                                  IsActive="{x:Bind _vm.IsChecking, Mode=OneWay}"
+                                  Width="16" Height="16"/>
                     <TextBlock x:Name="StatusText"
                                Text="{x:Bind _vm.StatusMessage, Mode=OneWay}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               VerticalAlignment="Center"/>
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Grid>
         </StackPanel>

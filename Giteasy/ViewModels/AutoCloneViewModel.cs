@@ -16,7 +16,6 @@ public partial class AutoCloneViewModel : ObservableObject
     private readonly AutoCloneService _autoCloneService;
     private readonly DatabaseService _db;
     private XamlRoot? _xamlRoot;
-    private Window? _window;
     private DispatcherQueue? _dispatcherQueue;
 
     // ─── バインディングプロパティ ───────────
@@ -28,10 +27,10 @@ public partial class AutoCloneViewModel : ObservableObject
     private string _cloneBaseDirectory = "";
 
     [ObservableProperty]
-    private bool _isWatching;
+    private bool _isChecking;
 
     [ObservableProperty]
-    private string _statusMessage = "監視は停止中です。";
+    private string _statusMessage = "設定を保存し、「今すぐチェック」でスキャンを実行できます。";
 
     /// <summary>クローン履歴（UIバインディング用）。</summary>
     public ObservableCollection<AutoCloneLogEntry> CloneHistory { get; } = new();
@@ -54,25 +53,16 @@ public partial class AutoCloneViewModel : ObservableObject
     }
 
     public void SetXamlRoot(XamlRoot root) => _xamlRoot = root;
-    public void SetWindow(Window window) => _window = window;
     public void SetDispatcherQueue(DispatcherQueue queue) => _dispatcherQueue = queue;
 
     // ─── コマンド ──────────────────────────
 
+    /// <summary>設定をDBに保存します。</summary>
     [RelayCommand]
-    private async Task ToggleWatchingAsync()
+    private async Task SaveSettingsAsync()
     {
         if (_xamlRoot == null) return;
 
-        if (IsWatching)
-        {
-            _autoCloneService.StopWatching();
-            IsWatching = false;
-            StatusMessage = "監視を停止しました。";
-            return;
-        }
-
-        // バリデーション
         if (string.IsNullOrWhiteSpace(WatchDirectory))
         {
             await DialogHelper.ShowErrorAsync(_xamlRoot, "入力エラー",
@@ -86,19 +76,78 @@ public partial class AutoCloneViewModel : ObservableObject
             return;
         }
 
+        _db.SetSetting("autoclone_watch_dir", WatchDirectory.Trim());
+        _db.SetSetting("autoclone_clone_dir", CloneBaseDirectory.Trim());
+
+        StatusMessage = "✓ 設定を保存しました。";
+        await DialogHelper.ShowInfoAsync(_xamlRoot, "保存完了",
+            "自動クローンの設定を保存しました。\nアプリ起動時に自動でチェックされます。");
+    }
+
+    /// <summary>今すぐスキャンを実行します。</summary>
+    [RelayCommand]
+    private async Task CheckNowAsync()
+    {
+        if (_xamlRoot == null) return;
+
+        if (string.IsNullOrWhiteSpace(WatchDirectory) || string.IsNullOrWhiteSpace(CloneBaseDirectory))
+        {
+            await DialogHelper.ShowErrorAsync(_xamlRoot, "設定が未完了",
+                "監視ディレクトリとクローン先ディレクトリを設定してください。");
+            return;
+        }
+
+        // 設定を保存（最新の値を反映）
+        _db.SetSetting("autoclone_watch_dir", WatchDirectory.Trim());
+        _db.SetSetting("autoclone_clone_dir", CloneBaseDirectory.Trim());
+
+        await RunScanAsync();
+    }
+
+    /// <summary>
+    /// アプリ起動時に呼ばれるスタートアップチェック。
+    /// DB に設定が保存されていればスキャンを実行します。
+    /// </summary>
+    public async Task RunStartupCheckAsync()
+    {
+        if (string.IsNullOrWhiteSpace(WatchDirectory) || string.IsNullOrWhiteSpace(CloneBaseDirectory))
+            return;
+
+        await RunScanAsync();
+    }
+
+    /// <summary>スキャンを実行し、結果をUIに反映します。</summary>
+    private async Task RunScanAsync()
+    {
+        IsChecking = true;
+        StatusMessage = "スキャン中...";
+
         try
         {
-            // 設定を保存
-            _db.SetSetting("autoclone_watch_dir", WatchDirectory.Trim());
-            _db.SetSetting("autoclone_clone_dir", CloneBaseDirectory.Trim());
+            var result = await _autoCloneService.ScanAndCloneAsync(
+                WatchDirectory.Trim(), CloneBaseDirectory.Trim());
 
-            _autoCloneService.StartWatching(WatchDirectory.Trim(), CloneBaseDirectory.Trim());
-            IsWatching = true;
-            StatusMessage = $"監視中: {WatchDirectory}";
+            if (result.Cloned > 0)
+            {
+                StatusMessage = $"✓ {result.Cloned} 件のリポジトリをクローンしました。（スキップ: {result.Skipped} 件）";
+            }
+            else if (result.Total == 0)
+            {
+                StatusMessage = "スキャン完了: 監視ディレクトリにリポジトリが見つかりませんでした。";
+            }
+            else
+            {
+                StatusMessage = $"スキャン完了: 新しいリポジトリはありません。（スキップ: {result.Skipped} 件）";
+            }
         }
         catch (Exception ex)
         {
-            await DialogHelper.ShowErrorAsync(_xamlRoot, "監視開始エラー", ex.Message);
+            StatusMessage = $"スキャンエラー: {ex.Message}";
+            GitLogService.Log($"[AutoClone] スキャンエラー: {ex.Message}");
+        }
+        finally
+        {
+            IsChecking = false;
         }
     }
 
@@ -115,7 +164,6 @@ public partial class AutoCloneViewModel : ObservableObject
                 ClonePath = project.LocalPath,
                 Status = "✓ 成功",
             });
-            StatusMessage = $"最後のクローン: {project.Name} ({DateTime.Now:HH:mm:ss})";
             ProjectListChanged?.Invoke();
         });
     }

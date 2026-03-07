@@ -1,21 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using Giteasy.Models;
 
 namespace Giteasy.Services;
 
 /// <summary>
-/// 監視ディレクトリ内に新しい Git bare リポジトリが作成されたとき、
-/// 自動的にクローンしてプロジェクト一覧に登録するサービスです。
+/// 指定ディレクトリ内の Git bare リポジトリを検出し、
+/// 未クローンのものを自動的にクローンしてプロジェクト一覧に登録するサービスです。
+/// アプリ起動時またはユーザー操作時にワンショットでスキャンを実行します。
 /// </summary>
-public class AutoCloneService : IDisposable
+public class AutoCloneService
 {
     private readonly GitService _git;
     private readonly DatabaseService _db;
-    private FileSystemWatcher? _watcher;
     private readonly HashSet<string> _processing = new();
     private readonly object _lock = new();
 
@@ -25,8 +24,8 @@ public class AutoCloneService : IDisposable
     /// <summary>エラー発生時に発火。</summary>
     public event Action<string>? ErrorOccurred;
 
-    /// <summary>現在監視中かどうか。</summary>
-    public bool IsWatching => _watcher?.EnableRaisingEvents == true;
+    /// <summary>スキップ時に発火（既にクローン済み、bare でない等）。</summary>
+    public event Action<string>? ItemSkipped;
 
     public AutoCloneService(GitService git, DatabaseService db)
     {
@@ -35,72 +34,84 @@ public class AutoCloneService : IDisposable
     }
 
     /// <summary>
-    /// 指定したディレクトリの監視を開始します。
-    /// 新規サブディレクトリが bare リポジトリであればクローンを実行します。
+    /// 監視ディレクトリ内のサブディレクトリをスキャンし、
+    /// bare リポジトリかつ未クローンのものをクローンします。
     /// </summary>
-    /// <param name="watchDir">監視対象ディレクトリ（bare リポジトリが作成される親ディレクトリ）</param>
+    /// <param name="watchDir">スキャン対象ディレクトリ（bare リポジトリが格納される親ディレクトリ）</param>
     /// <param name="cloneBaseDir">クローン先のベースディレクトリ</param>
-    public void StartWatching(string watchDir, string cloneBaseDir)
+    /// <returns>スキャン結果（クローン成功数、スキップ数、エラー数）</returns>
+    public async Task<ScanResult> ScanAndCloneAsync(string watchDir, string cloneBaseDir)
     {
-        StopWatching();
+        var result = new ScanResult();
 
         if (!Directory.Exists(watchDir))
-            Directory.CreateDirectory(watchDir);
+        {
+            GitLogService.Log($"[AutoClone] 監視ディレクトリが存在しません: {watchDir}");
+            return result;
+        }
+
         if (!Directory.Exists(cloneBaseDir))
             Directory.CreateDirectory(cloneBaseDir);
 
-        _watcher = new FileSystemWatcher(watchDir)
+        GitLogService.Log($"[AutoClone] スキャン開始: {watchDir}");
+
+        string[] subdirs;
+        try
         {
-            NotifyFilter = NotifyFilters.DirectoryName,
-            IncludeSubdirectories = false,
-            EnableRaisingEvents = true,
-        };
-
-        _watcher.Created += async (_, e) =>
-        {
-            // ディレクトリのみ処理
-            if (!Directory.Exists(e.FullPath)) return;
-
-            // bare リポ判定に遅延を入れる（init 完了を待つ）
-            await Task.Delay(2000);
-
-            await TryAutoCloneAsync(e.FullPath, cloneBaseDir);
-        };
-
-        GitLogService.Log($"[AutoClone] 監視開始: {watchDir}");
-    }
-
-    /// <summary>監視を停止します。</summary>
-    public void StopWatching()
-    {
-        if (_watcher != null)
-        {
-            _watcher.EnableRaisingEvents = false;
-            _watcher.Dispose();
-            _watcher = null;
-            GitLogService.Log("[AutoClone] 監視停止");
+            subdirs = Directory.GetDirectories(watchDir);
         }
+        catch (Exception ex)
+        {
+            GitLogService.Log($"[AutoClone] ディレクトリ列挙エラー: {ex.Message}");
+            ErrorOccurred?.Invoke($"ディレクトリの読み取りに失敗しました: {ex.Message}");
+            return result;
+        }
+
+        foreach (var subdir in subdirs)
+        {
+            if (!IsBareRepository(subdir))
+            {
+                result.Skipped++;
+                continue;
+            }
+
+            var cloneResult = await TryAutoCloneAsync(subdir, cloneBaseDir);
+            switch (cloneResult)
+            {
+                case CloneResult.Cloned:
+                    result.Cloned++;
+                    break;
+                case CloneResult.AlreadyExists:
+                    result.Skipped++;
+                    break;
+                case CloneResult.Error:
+                    result.Errors++;
+                    break;
+            }
+        }
+
+        GitLogService.Log($"[AutoClone] スキャン完了: クローン {result.Cloned} 件, スキップ {result.Skipped} 件, エラー {result.Errors} 件");
+        return result;
     }
 
     /// <summary>
     /// 指定パスが bare リポジトリかを判定し、クローンを実行します。
     /// </summary>
-    private async Task TryAutoCloneAsync(string repoPath, string cloneBaseDir)
+    public async Task<CloneResult> TryAutoCloneAsync(string repoPath, string cloneBaseDir)
     {
         // 二重処理防止
         lock (_lock)
         {
-            if (_processing.Contains(repoPath)) return;
+            if (_processing.Contains(repoPath)) return CloneResult.AlreadyExists;
             _processing.Add(repoPath);
         }
 
         try
         {
-            // bare リポジトリかどうかの判定（HEAD ファイルの存在）
             if (!IsBareRepository(repoPath))
             {
-                GitLogService.Log($"[AutoClone] bare リポジトリではないためスキップ: {repoPath}");
-                return;
+                ItemSkipped?.Invoke($"bare リポジトリではないためスキップ: {Path.GetFileName(repoPath)}");
+                return CloneResult.AlreadyExists;
             }
 
             var repoName = Path.GetFileName(repoPath);
@@ -115,8 +126,8 @@ public class AutoCloneService : IDisposable
             // 既にクローン済みならスキップ
             if (Directory.Exists(clonePath) && Directory.GetFileSystemEntries(clonePath).Length > 0)
             {
-                GitLogService.Log($"[AutoClone] 既にクローン済み: {clonePath}");
-                return;
+                ItemSkipped?.Invoke($"既にクローン済み: {repoName}");
+                return CloneResult.AlreadyExists;
             }
 
             GitLogService.Log($"[AutoClone] クローン開始: {repoPath} → {clonePath}");
@@ -134,12 +145,14 @@ public class AutoCloneService : IDisposable
 
             GitLogService.Log($"[AutoClone] クローン完了 & プロジェクト登録: {repoName}");
             ProjectAutoCloned?.Invoke(project);
+            return CloneResult.Cloned;
         }
         catch (Exception ex)
         {
             var msg = $"[AutoClone] クローン失敗: {repoPath} — {ex.Message}";
             GitLogService.Log(msg);
             ErrorOccurred?.Invoke(msg);
+            return CloneResult.Error;
         }
         finally
         {
@@ -166,10 +179,21 @@ public class AutoCloneService : IDisposable
             && Directory.Exists(objectsDir)
             && Directory.Exists(refsDir);
     }
+}
 
-    public void Dispose()
-    {
-        StopWatching();
-        GC.SuppressFinalize(this);
-    }
+/// <summary>スキャン結果。</summary>
+public class ScanResult
+{
+    public int Cloned { get; set; }
+    public int Skipped { get; set; }
+    public int Errors { get; set; }
+    public int Total => Cloned + Skipped + Errors;
+}
+
+/// <summary>個別クローンの結果。</summary>
+public enum CloneResult
+{
+    Cloned,
+    AlreadyExists,
+    Error,
 }

@@ -85,7 +85,6 @@ public sealed partial class MainWindow : Window
         // ウィンドウ参照
         _settingsVm.SetWindow(this);
         _repoSetupVm.SetWindow(this);
-        _autoCloneVm.SetWindow(this);
 
         // AutoClone でプロジェクトが追加されたらリフレッシュ
         _autoCloneVm.ProjectListChanged += () => _projectsVm.Refresh();
@@ -94,6 +93,9 @@ public sealed partial class MainWindow : Window
         _settingsVm.LoadSettings();
         App.ApplyTheme(this, _settingsVm.SelectedTheme);
         UpdateStatusBar();
+
+        // AutoClone: 起動時にスキャン実行（fire & forget）
+        _ = _autoCloneVm.RunStartupCheckAsync();
     }
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)
