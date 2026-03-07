@@ -230,7 +230,7 @@
                        VerticalAlignment="Center" FontSize="12"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             <Button x:Name="CreateBranchFromCommitBtn" Grid.Column="1"
-                    Content="ここからブランチ作成" Margin="8,0"
+                    Content="ブランチ作成" Margin="8,0"
                     Click="CreateBranchFromCommit_Click"
                     IsEnabled="False"
                     ToolTipService.ToolTip="選択したコミットから新しいブランチを作成"/>
