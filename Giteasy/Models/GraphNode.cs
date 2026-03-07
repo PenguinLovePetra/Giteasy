@@ -28,6 +28,9 @@ public class GraphNode
     /// <summary>このノードのインデックス（コミットリスト内の位置）。</summary>
     public int Index { get; set; }
 
+    /// <summary>上方向から親接続がある（既存レーンに待たれていた）かどうか。</summary>
+    public bool HasParentAbove { get; set; }
+
     public GraphNode(CommitInfo commit)
     {
         Commit = commit;

@@ -62,6 +62,11 @@ public static class GraphService
                 if (!laneColors.ContainsKey(commitLane))
                     laneColors[commitLane] = nextColorIndex++;
             }
+            else
+            {
+                // 既存レーンに待たれていた → 上から接続がある
+                node.HasParentAbove = true;
+            }
 
             node.Lane = commitLane;
 
@@ -143,33 +148,6 @@ public static class GraphService
 
             // 末尾の空きレーンのみ除去（レーン安定性のため、途中の空きは除去しない）
             TrimTrailingEmptyLanes(lanes);
-        }
-
-        // ── 5. IncomingEdgesを対応ノードに設定 ──
-        // 各ノードのEdgesを見て、次に描画されるノードのIncomingEdgesに追加する
-        // GraphServiceで直接設定（描画側で参照する）
-        for (int i = 0; i < nodes.Count; i++)
-        {
-            var node = nodes[i];
-            if (i + 1 < nodes.Count)
-            {
-                var nextNode = nodes[i + 1];
-                foreach (var edge in node.Edges)
-                {
-                    // このエッジは node の行の下半分から始まり、
-                    // nextNode の行の上半分に到着する
-                    // FromLane = edge.ToLane（上のノードのエッジの到着レーンが、
-                    //                        次の行では出発レーンになる）
-                    // ToLane は nextNode のコミットレーンまたは通過レーン
-                    var incomingEdge = new GraphEdge(edge.ToLane, edge.ToLane, edge.ColorIndex);
-
-                    // ステップ2で追加済みの合流IncomingEdgesと重複しないようチェック
-                    bool isDuplicate = nextNode.IncomingEdges.Any(e =>
-                        e.FromLane == incomingEdge.FromLane && e.ToLane == incomingEdge.ToLane);
-                    if (!isDuplicate)
-                        nextNode.IncomingEdges.Add(incomingEdge);
-                }
-            }
         }
 
         // 最大レーン数を全ノードに設定

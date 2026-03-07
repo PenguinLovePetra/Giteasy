@@ -282,20 +282,17 @@ public sealed partial class RepositoryPage : Page
                 DrawLine(canvas, x, 0, x, RowHeight, GetLaneColor(activeLane), LineThickness);
             }
 
-            // 上半分接続: IncomingEdgesに自分のレーンへの直線到着がある場合のみ
-            bool hasVerticalIncoming = node.IncomingEdges.Any(e =>
-                e.FromLane == node.Lane && e.ToLane == node.Lane);
-            if (hasVerticalIncoming)
+            // 上半分接続: 既存レーンで待たれていたコミットのみ縦線を描画
+            if (node.HasParentAbove)
             {
                 DrawLine(canvas, commitX, 0, commitX, centerY, GetLaneColor(node.Lane), LineThickness);
             }
 
-            // 合流線
+            // 合流線（マージ時の別レーンからの接続）
             foreach (var incoming in node.IncomingEdges)
             {
-                if (incoming.FromLane != node.Lane)
-                    DrawBezierEdge(canvas, GetLaneX(incoming.FromLane), 0,
-                                   GetLaneX(node.Lane), centerY, GetLaneColor(incoming.ColorIndex));
+                DrawBezierEdge(canvas, GetLaneX(incoming.FromLane), 0,
+                               GetLaneX(node.Lane), centerY, GetLaneColor(incoming.ColorIndex));
             }
 
             // 下方向エッジ
