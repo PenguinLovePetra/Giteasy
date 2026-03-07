@@ -56,11 +56,6 @@
                         <FontIcon Glyph="&#xE896;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Safe Directory" Tag="SafeDirectory">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE946;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItemSeparator/>
                 <NavigationViewItem Content="ステータス" Tag="Status" Icon="Home">
                     <NavigationViewItem.InfoBadge>
@@ -85,6 +80,11 @@
                 <NavigationViewItem Content="ログ" Tag="Log">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE756;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="安全なディレクトリ" Tag="SafeDirectory">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

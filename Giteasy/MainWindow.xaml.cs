@@ -93,6 +93,9 @@ public sealed partial class MainWindow : Window
         // AutoClone でプロジェクトが追加されたらリフレッシュ
         _autoCloneVm.ProjectListChanged += () => _projectsVm.Refresh();
 
+        // 同期完了時に履歴も更新
+        _syncVm.SyncCompleted += async () => await _historyVm.RefreshCommand.ExecuteAsync(null);
+
         // 設定読み込み & テーマ初期適用
         _settingsVm.LoadSettings();
         App.ApplyTheme(this, _settingsVm.SelectedTheme);
