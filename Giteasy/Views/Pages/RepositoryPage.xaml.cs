@@ -282,19 +282,12 @@ public sealed partial class RepositoryPage : Page
                 DrawLine(canvas, x, 0, x, RowHeight, GetLaneColor(activeLane), LineThickness);
             }
 
-            // 上半分接続
-            if (node.Index > 0)
+            // 上半分接続: IncomingEdgesに自分のレーンへの直線到着がある場合のみ
+            bool hasVerticalIncoming = node.IncomingEdges.Any(e =>
+                e.FromLane == node.Lane && e.ToLane == node.Lane);
+            if (hasVerticalIncoming)
             {
-                var prevNodeIdx = node.Index - 1;
-                if (prevNodeIdx >= 0 && prevNodeIdx < _historyVm.GraphNodes.Count)
-                {
-                    var prevNode = _historyVm.GraphNodes[prevNodeIdx];
-                    bool connectedFromAbove = prevNode.Edges.Any(e => e.ToLane == node.Lane) ||
-                                               prevNode.ActiveLanes.Contains(node.Lane) ||
-                                               prevNode.Lane == node.Lane;
-                    if (connectedFromAbove)
-                        DrawLine(canvas, commitX, 0, commitX, centerY, GetLaneColor(node.Lane), LineThickness);
-                }
+                DrawLine(canvas, commitX, 0, commitX, centerY, GetLaneColor(node.Lane), LineThickness);
             }
 
             // 合流線
