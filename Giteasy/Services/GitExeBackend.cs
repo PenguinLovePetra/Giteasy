@@ -232,9 +232,31 @@ public class GitExeBackend : IGitBackend
                 RunGit($"config user.name \"{_userName}\"", _repositoryPath!);
                 RunGit($"config user.email \"{_userEmail}\"", _repositoryPath!);
             }
+
             var result = RunGit("pull", _repositoryPath!);
             if (result.ExitCode != 0)
+            {
+                // upstream 未設定の場合、ブランチ名を検出して origin <branch> で再試行
+                if (result.Error.Contains("not currently on a branch") ||
+                    result.Error.Contains("no tracking information") ||
+                    result.Error.Contains("specify which branch"))
+                {
+                    var branchResult = RunGit("rev-parse --abbrev-ref HEAD", _repositoryPath!);
+                    var branch = branchResult.Output.Trim();
+                    if (!string.IsNullOrEmpty(branch) && branch != "HEAD")
+                    {
+                        var retryResult = RunGit($"pull origin \"{branch}\"", _repositoryPath!);
+                        if (retryResult.ExitCode != 0)
+                            throw new InvalidOperationException(retryResult.Error);
+
+                        // upstream を設定
+                        RunGit($"branch --set-upstream-to=origin/{branch} \"{branch}\"", _repositoryPath!);
+
+                        return retryResult.Output.Contains("Already up to date") ? "UpToDate" : "Merged";
+                    }
+                }
                 throw new InvalidOperationException(result.Error);
+            }
             return result.Output.Contains("Already up to date") ? "UpToDate" : "Merged";
         });
     }
@@ -268,7 +290,7 @@ public class GitExeBackend : IGitBackend
         EnsureRepository();
         // パイプ文字がメッセージに入る可能性を考慮して区切りを特殊文字に
         var sep = "§§";
-        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
+        var result = RunGit($"log --all -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
         if (result.ExitCode != 0) return new List<CommitInfo>();
 
         var commits = new List<CommitInfo>();
@@ -290,7 +312,6 @@ public class GitExeBackend : IGitBackend
                     )
                     .SelectMany(r => r.Split(',', StringSplitOptions.RemoveEmptyEntries))
                     .Select(r => r.Trim())
-                    .Where(r => !r.StartsWith("origin/")) // リモートブランチはスキップ
                     .ToList();
 
             commits.Add(new CommitInfo(

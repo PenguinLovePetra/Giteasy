@@ -507,13 +507,32 @@ public class GitService : IGitBackend
             var name = r.CanonicalName;
             if (name.StartsWith("refs/heads/")) name = name["refs/heads/".Length..];
             else if (name.StartsWith("refs/tags/")) name = "tag: " + name["refs/tags/".Length..];
+            else if (name.StartsWith("refs/remotes/")) name = name["refs/remotes/".Length..];
             else if (name == "HEAD") name = "HEAD";
-            else continue; // remotes等はスキップ
+            else continue;
             refMap[targetSha].Add(name);
         }
 
-        return repo.Commits
-            .Take(maxCount)
+        // 全ブランチ（ローカル+リモート）のコミットを取得
+        var allCommits = new HashSet<string>();
+        var orderedCommits = new List<Commit>();
+
+        // 全ブランチの先頭コミットから走査
+        var filter = new CommitFilter
+        {
+            SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time,
+        };
+
+        foreach (var commit in repo.Commits.QueryBy(filter))
+        {
+            if (allCommits.Add(commit.Sha))
+            {
+                orderedCommits.Add(commit);
+                if (orderedCommits.Count >= maxCount) break;
+            }
+        }
+
+        return orderedCommits
             .Select(c => new CommitInfo(
                 c.Sha,
                 c.MessageShort,
