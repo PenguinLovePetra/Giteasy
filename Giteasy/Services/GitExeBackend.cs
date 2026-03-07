@@ -148,21 +148,26 @@ public class GitExeBackend : IGitBackend
     {
         EnsureRepository();
         var branches = new List<BranchInfo>();
+        var trackedRemoteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // ローカルブランチ
-        var local = RunGit("branch --format=%(refname:short)|%(refname)|%(HEAD)", _repositoryPath!);
+        // ローカルブランチ（トラッキング情報付き）
+        var local = RunGit("branch --format=%(refname:short)|%(refname)|%(HEAD)|%(upstream:short)", _repositoryPath!);
         if (local.ExitCode == 0)
         {
             foreach (var line in local.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 var parts = line.Split('|');
                 if (parts.Length < 3) continue;
+                var trackedRemote = parts.Length >= 4 ? parts[3].Trim() : "";
+                if (!string.IsNullOrEmpty(trackedRemote))
+                    trackedRemoteNames.Add(trackedRemote);
                 branches.Add(new BranchInfo(parts[0].Trim(), parts[1].Trim(),
-                    parts[2].Trim() == "*", false));
+                    parts[2].Trim() == "*", false,
+                    string.IsNullOrEmpty(trackedRemote) ? null : trackedRemote));
             }
         }
 
-        // リモートブランチ
+        // リモートブランチ（同期済みのものは除外）
         var remote = RunGit("branch -r --format=%(refname:short)|%(refname)", _repositoryPath!);
         if (remote.ExitCode == 0)
         {
@@ -170,8 +175,11 @@ public class GitExeBackend : IGitBackend
             {
                 var parts = line.Split('|');
                 if (parts.Length < 2) continue;
-                if (parts[0].Trim().Contains("HEAD")) continue;
-                branches.Add(new BranchInfo(parts[0].Trim(), parts[1].Trim(), false, true));
+                var remoteName = parts[0].Trim();
+                if (remoteName.Contains("HEAD")) continue;
+                // ローカルブランチで追跡済みのリモートブランチは除外
+                if (trackedRemoteNames.Contains(remoteName)) continue;
+                branches.Add(new BranchInfo(remoteName, parts[1].Trim(), false, true));
             }
         }
 

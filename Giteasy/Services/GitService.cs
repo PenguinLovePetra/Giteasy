@@ -119,14 +119,48 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// リポジトリのパスを設定します。
+    /// UNC パス（\\server\share\...）にも対応しています。
     /// </summary>
     public void SetRepository(string path)
     {
         if (_externalBackend != null) { _externalBackend.SetRepository(path); _repositoryPath = _externalBackend.RepositoryPath; return; }
+
+        // Repository.Discover は UNC パスで失敗することがあるため、
+        // 直接パスの妥当性を確認するフォールバックも用意
         var discovered = Repository.Discover(path);
-        if (discovered == null)
-            throw new RepositoryNotFoundException($"指定されたパスにGitリポジトリが見つかりません:\n{path}");
-        _repositoryPath = new DirectoryInfo(discovered).Parent?.FullName ?? discovered;
+        if (discovered != null)
+        {
+            // Discover は ".git/" のパスを返す (例: "\\server\share\repo\.git\")
+            // 末尾のスラッシュと .git を除去してリポジトリルートを得る
+            var trimmed = discovered.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+            {
+                _repositoryPath = Path.GetDirectoryName(trimmed) ?? trimmed;
+            }
+            else
+            {
+                _repositoryPath = trimmed;
+            }
+            return;
+        }
+
+        // Discover 失敗時のフォールバック: 直接パスを検証
+        var normalizedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (Repository.IsValid(normalizedPath))
+        {
+            _repositoryPath = normalizedPath;
+            return;
+        }
+
+        // .git サブディレクトリを含むパスも試行
+        var gitSubDir = Path.Combine(normalizedPath, ".git");
+        if (Directory.Exists(gitSubDir) && Repository.IsValid(normalizedPath))
+        {
+            _repositoryPath = normalizedPath;
+            return;
+        }
+
+        throw new RepositoryNotFoundException($"指定されたパスにGitリポジトリが見つかりません:\n{path}");
     }
 
     /// <summary>
@@ -256,14 +290,36 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// ブランチ一覧を取得します。
+    /// ローカルブランチと同期済みのリモートブランチは統合して表示します。
     /// </summary>
     public List<BranchInfo> GetBranches()
     {
         if (_externalBackend != null) return _externalBackend.GetBranches();
         EnsureRepository();
         using var repo = new Repository(_repositoryPath);
-        return repo.Branches
-            .Select(b => new BranchInfo(b.FriendlyName, b.CanonicalName, b.IsCurrentRepositoryHead, b.IsRemote))
+
+        // ローカルブランチのトラッキング情報を収集
+        var trackedRemoteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var localBranches = new List<BranchInfo>();
+
+        foreach (var b in repo.Branches.Where(b => !b.IsRemote))
+        {
+            var trackedName = b.TrackedBranch?.FriendlyName;
+            if (!string.IsNullOrEmpty(trackedName))
+                trackedRemoteNames.Add(trackedName);
+            localBranches.Add(new BranchInfo(
+                b.FriendlyName, b.CanonicalName,
+                b.IsCurrentRepositoryHead, false, trackedName));
+        }
+
+        // リモートブランチ（同期済みのものは除外）
+        var remoteBranches = repo.Branches
+            .Where(b => b.IsRemote && !trackedRemoteNames.Contains(b.FriendlyName))
+            .Select(b => new BranchInfo(b.FriendlyName, b.CanonicalName, false, true))
+            .ToList();
+
+        return localBranches
+            .Concat(remoteBranches)
             .OrderByDescending(b => b.IsHead)
             .ThenBy(b => b.IsRemote)
             .ThenBy(b => b.Name)

@@ -64,13 +64,18 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="{Binding Icon}" FontSize="16"
                                       VerticalAlignment="Center"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding SyncStatusText}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                           Visibility="{Binding IsSynced}"/>
                             </StackPanel>
-                            <Border Grid.Column="2" CornerRadius="4" Padding="8,2"
+                            <Border Grid.Column="3" CornerRadius="4" Padding="8,2"
                                     Visibility="{Binding IsHead}"
                                     Background="{ThemeResource AccentFillColorDefaultBrush}">
                                 <TextBlock Text="現在" FontSize="12" Foreground="White"/>
