@@ -119,14 +119,48 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// リポジトリのパスを設定します。
+    /// UNC パス（\\server\share\...）にも対応しています。
     /// </summary>
     public void SetRepository(string path)
     {
         if (_externalBackend != null) { _externalBackend.SetRepository(path); _repositoryPath = _externalBackend.RepositoryPath; return; }
+
+        // Repository.Discover は UNC パスで失敗することがあるため、
+        // 直接パスの妥当性を確認するフォールバックも用意
         var discovered = Repository.Discover(path);
-        if (discovered == null)
-            throw new RepositoryNotFoundException($"指定されたパスにGitリポジトリが見つかりません:\n{path}");
-        _repositoryPath = new DirectoryInfo(discovered).Parent?.FullName ?? discovered;
+        if (discovered != null)
+        {
+            // Discover は ".git/" のパスを返す (例: "\\server\share\repo\.git\")
+            // 末尾のスラッシュと .git を除去してリポジトリルートを得る
+            var trimmed = discovered.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+            {
+                _repositoryPath = Path.GetDirectoryName(trimmed) ?? trimmed;
+            }
+            else
+            {
+                _repositoryPath = trimmed;
+            }
+            return;
+        }
+
+        // Discover 失敗時のフォールバック: 直接パスを検証
+        var normalizedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (Repository.IsValid(normalizedPath))
+        {
+            _repositoryPath = normalizedPath;
+            return;
+        }
+
+        // .git サブディレクトリを含むパスも試行
+        var gitSubDir = Path.Combine(normalizedPath, ".git");
+        if (Directory.Exists(gitSubDir) && Repository.IsValid(normalizedPath))
+        {
+            _repositoryPath = normalizedPath;
+            return;
+        }
+
+        throw new RepositoryNotFoundException($"指定されたパスにGitリポジトリが見つかりません:\n{path}");
     }
 
     /// <summary>
@@ -256,14 +290,36 @@ public class GitService : IGitBackend
 
     /// <summary>
     /// ブランチ一覧を取得します。
+    /// ローカルブランチと同期済みのリモートブランチは統合して表示します。
     /// </summary>
     public List<BranchInfo> GetBranches()
     {
         if (_externalBackend != null) return _externalBackend.GetBranches();
         EnsureRepository();
         using var repo = new Repository(_repositoryPath);
-        return repo.Branches
-            .Select(b => new BranchInfo(b.FriendlyName, b.CanonicalName, b.IsCurrentRepositoryHead, b.IsRemote))
+
+        // ローカルブランチのトラッキング情報を収集
+        var trackedRemoteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var localBranches = new List<BranchInfo>();
+
+        foreach (var b in repo.Branches.Where(b => !b.IsRemote))
+        {
+            var trackedName = b.TrackedBranch?.FriendlyName;
+            if (!string.IsNullOrEmpty(trackedName))
+                trackedRemoteNames.Add(trackedName);
+            localBranches.Add(new BranchInfo(
+                b.FriendlyName, b.CanonicalName,
+                b.IsCurrentRepositoryHead, false, trackedName));
+        }
+
+        // リモートブランチ（同期済みのものは除外）
+        var remoteBranches = repo.Branches
+            .Where(b => b.IsRemote && !trackedRemoteNames.Contains(b.FriendlyName))
+            .Select(b => new BranchInfo(b.FriendlyName, b.CanonicalName, false, true))
+            .ToList();
+
+        return localBranches
+            .Concat(remoteBranches)
             .OrderByDescending(b => b.IsHead)
             .ThenBy(b => b.IsRemote)
             .ThenBy(b => b.Name)
@@ -279,6 +335,19 @@ public class GitService : IGitBackend
         EnsureRepository();
         using var repo = new Repository(_repositoryPath);
         repo.CreateBranch(branchName);
+    }
+
+    /// <summary>
+    /// 指定したコミットから新しいブランチを作成します。
+    /// </summary>
+    public void CreateBranchFromCommit(string branchName, string commitSha)
+    {
+        if (_externalBackend != null) { _externalBackend.CreateBranchFromCommit(branchName, commitSha); return; }
+        EnsureRepository();
+        using var repo = new Repository(_repositoryPath);
+        var commit = repo.Lookup<Commit>(commitSha)
+            ?? throw new InvalidOperationException($"コミット {commitSha} が見つかりません。");
+        repo.CreateBranch(branchName, commit);
     }
 
     /// <summary>
@@ -451,13 +520,32 @@ public class GitService : IGitBackend
             var name = r.CanonicalName;
             if (name.StartsWith("refs/heads/")) name = name["refs/heads/".Length..];
             else if (name.StartsWith("refs/tags/")) name = "tag: " + name["refs/tags/".Length..];
+            else if (name.StartsWith("refs/remotes/")) name = name["refs/remotes/".Length..];
             else if (name == "HEAD") name = "HEAD";
-            else continue; // remotes等はスキップ
+            else continue;
             refMap[targetSha].Add(name);
         }
 
-        return repo.Commits
-            .Take(maxCount)
+        // 全ブランチ（ローカル+リモート）のコミットを取得
+        var allCommits = new HashSet<string>();
+        var orderedCommits = new List<Commit>();
+
+        // 全ブランチの先頭コミットから走査
+        var filter = new CommitFilter
+        {
+            SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time,
+        };
+
+        foreach (var commit in repo.Commits.QueryBy(filter))
+        {
+            if (allCommits.Add(commit.Sha))
+            {
+                orderedCommits.Add(commit);
+                if (orderedCommits.Count >= maxCount) break;
+            }
+        }
+
+        return orderedCommits
             .Select(c => new CommitInfo(
                 c.Sha,
                 c.MessageShort,
@@ -593,6 +681,18 @@ public class GitService : IGitBackend
 
         await Task.Run(() =>
         {
+            // safe.directory に登録（ネットワーク共有フォルダ等での所有権エラーを防止）
+            try
+            {
+                var safeDir = new SafeDirectoryService();
+                safeDir.AddSafeDirectory(remoteUrl);
+                safeDir.AddSafeDirectory(localPath);
+            }
+            catch (Exception ex)
+            {
+                GitLogService.Log($"[SafeDirectory] 自動登録の警告: {ex.Message}");
+            }
+
             var options = new CloneOptions();
             Repository.Clone(remoteUrl, localPath, options);
         });

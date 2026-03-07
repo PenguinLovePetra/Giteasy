@@ -21,6 +21,8 @@ public sealed partial class MainWindow : Window
     private readonly LogViewModel _logVm;
     private readonly AutoCloneService _autoCloneService;
     private readonly AutoCloneViewModel _autoCloneVm;
+    private readonly SafeDirectoryService _safeDirectoryService;
+    private readonly SafeDirectoryViewModel _safeDirectoryVm;
 
     public MainWindow()
     {
@@ -45,6 +47,8 @@ public sealed partial class MainWindow : Window
         _logVm = new LogViewModel();
         _autoCloneService = new AutoCloneService(_gitService, _db);
         _autoCloneVm = new AutoCloneViewModel(_autoCloneService, _db);
+        _safeDirectoryService = new SafeDirectoryService();
+        _safeDirectoryVm = new SafeDirectoryViewModel(_safeDirectoryService);
 
         // 設定変更 → ステータスバー更新
         _settingsVm.SettingsChanged += UpdateStatusBar;
@@ -85,15 +89,20 @@ public sealed partial class MainWindow : Window
         // ウィンドウ参照
         _settingsVm.SetWindow(this);
         _repoSetupVm.SetWindow(this);
-        _autoCloneVm.SetWindow(this);
 
         // AutoClone でプロジェクトが追加されたらリフレッシュ
         _autoCloneVm.ProjectListChanged += () => _projectsVm.Refresh();
+
+        // 同期完了時に履歴も更新
+        _syncVm.SyncCompleted += async () => await _historyVm.RefreshCommand.ExecuteAsync(null);
 
         // 設定読み込み & テーマ初期適用
         _settingsVm.LoadSettings();
         App.ApplyTheme(this, _settingsVm.SelectedTheme);
         UpdateStatusBar();
+
+        // AutoClone: 起動時にスキャン実行（fire & forget）
+        _ = _autoCloneVm.RunStartupCheckAsync();
     }
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)
@@ -117,17 +126,14 @@ public sealed partial class MainWindow : Window
             case "AutoClone":
                 ContentFrame.Content = new AutoClonePage(_autoCloneVm);
                 break;
+            case "SafeDirectory":
+                ContentFrame.Content = new SafeDirectoryPage(_safeDirectoryVm);
+                break;
             case "Status":
                 ContentFrame.Content = new StatusPage(_statusVm);
                 break;
-            case "Branch":
-                ContentFrame.Content = new BranchPage(_branchVm);
-                break;
-            case "Sync":
-                ContentFrame.Content = new SyncPage(_syncVm);
-                break;
-            case "History":
-                ContentFrame.Content = new HistoryPage(_historyVm);
+            case "Repository":
+                ContentFrame.Content = new RepositoryPage(_syncVm, _branchVm, _historyVm, _gitService);
                 break;
             case "Settings":
                 ContentFrame.Content = new SettingsPage(_settingsVm);

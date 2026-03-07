@@ -1,23 +1,32 @@
 # Views
 
-## 📁 役割と機能 (Role & Functions)
+## 📁 役割と責務
 
-UI（プレゼンテーション層）を構成する XAML ファイルと、それに紐づくコードビハインド (`*.xaml.cs`) を配置するディレクトリです。
+MVVM パターンの View 層を管理するディレクトリです。
+実際のページコンテンツは `Pages/` サブディレクトリに格納されています。
 
-- **`Controls/`**:
-  アプリケーション全体で再利用可能なカスタムユーザーコントロール（UserControl や CustomControl）を定義します（現状は使用していなければ作成予定地）。
-- **`Pages/`**:
-  NavigationView で切り替わる各画面単位の UI コンポーネント（Page）を格納します。
+## ディレクトリ構成
 
-## ⚠️ 技術的負債と既知の課題 (Technical Debt & Known Issues)
+```
+Views/
+└── Pages/          # 各画面の XAML + コードビハインド
+    ├── ProjectsPage.xaml/.cs
+    ├── RepoSetupPage.xaml/.cs
+    ├── AutoClonePage.xaml/.cs
+    ├── StatusPage.xaml/.cs
+    ├── BranchPage.xaml/.cs
+    ├── SyncPage.xaml/.cs
+    ├── HistoryPage.xaml/.cs
+    ├── SettingsPage.xaml/.cs
+    └── LogPage.xaml/.cs
+```
 
-- **コードビハインドへの依存**:
-  MVVM パターンを採用しているにも関わらず、GUI コンポーネントの操作、アニメーションの実行、ダイアログのトリガーなど一部のロジックが `*.xaml.cs` (コードビハインド) に直接ベタ書きされている箇所があります（例: `ProjectsPage.xaml.cs` のナビゲーション処理など）。テスタビリティを損なう原因になっています。
-- **UI スレッドの考慮漏れ**:
-  UIイベントから直接非同期処理（`async void` のイベントハンドラ）を呼び出しているケースがあり、ViewModelへの例外伝播や `IsBusy` の制御が複雑化しています。
-- **データバインディングの型指定 (x:Bind vs Binding)**:
-  `{x:Bind}` (コンパイル時バインディング) と `{Binding}` (実行時バインディング) が混在している可能性があります。パフォーマンスと保守性の観点から `{x:Bind}` への統一と `ViewModel` プロパティの明示が望ましいです。
+## 設計方針
 
-## 📝 更新ルール (Update Rules)
+- 各ページは `MainWindow` の `NavigationView` から遷移して表示される
+- ページのコンストラクタで ViewModel を受け取り、UI 初期化時に `SetXamlRoot()` を呼び出す
+- XAML では `{x:Bind ViewModel.Property}` によるコンパイル時バインディングを使用
 
-**【重要】今後このディレクトリに新しい View（XAMLとコードビハインド）を追加した際は、必ずこの README の「役割と機能」や「技術的負債」に追記・修正を行い、コードビハインドにロジックを置いた場合はその理由を明記してください。**
+## 🔧 拡張ガイド
+
+- **新ページの追加**: `Pages/` に `XxxPage.xaml` + `XxxPage.xaml.cs` を作成 → 対応する ViewModel を `ViewModels/` に作成 → `MainWindow.xaml` の NavigationView に項目追加

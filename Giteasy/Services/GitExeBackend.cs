@@ -148,21 +148,26 @@ public class GitExeBackend : IGitBackend
     {
         EnsureRepository();
         var branches = new List<BranchInfo>();
+        var trackedRemoteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // ローカルブランチ
-        var local = RunGit("branch --format=%(refname:short)|%(refname)|%(HEAD)", _repositoryPath!);
+        // ローカルブランチ（トラッキング情報付き）
+        var local = RunGit("branch --format=%(refname:short)|%(refname)|%(HEAD)|%(upstream:short)", _repositoryPath!);
         if (local.ExitCode == 0)
         {
             foreach (var line in local.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 var parts = line.Split('|');
                 if (parts.Length < 3) continue;
+                var trackedRemote = parts.Length >= 4 ? parts[3].Trim() : "";
+                if (!string.IsNullOrEmpty(trackedRemote))
+                    trackedRemoteNames.Add(trackedRemote);
                 branches.Add(new BranchInfo(parts[0].Trim(), parts[1].Trim(),
-                    parts[2].Trim() == "*", false));
+                    parts[2].Trim() == "*", false,
+                    string.IsNullOrEmpty(trackedRemote) ? null : trackedRemote));
             }
         }
 
-        // リモートブランチ
+        // リモートブランチ（同期済みのものは除外）
         var remote = RunGit("branch -r --format=%(refname:short)|%(refname)", _repositoryPath!);
         if (remote.ExitCode == 0)
         {
@@ -170,8 +175,11 @@ public class GitExeBackend : IGitBackend
             {
                 var parts = line.Split('|');
                 if (parts.Length < 2) continue;
-                if (parts[0].Trim().Contains("HEAD")) continue;
-                branches.Add(new BranchInfo(parts[0].Trim(), parts[1].Trim(), false, true));
+                var remoteName = parts[0].Trim();
+                if (remoteName.Contains("HEAD")) continue;
+                // ローカルブランチで追跡済みのリモートブランチは除外
+                if (trackedRemoteNames.Contains(remoteName)) continue;
+                branches.Add(new BranchInfo(remoteName, parts[1].Trim(), false, true));
             }
         }
 
@@ -182,6 +190,12 @@ public class GitExeBackend : IGitBackend
     {
         EnsureRepository();
         RunGitOrThrow($"branch \"{name}\"", _repositoryPath!);
+    }
+
+    public void CreateBranchFromCommit(string name, string commitSha)
+    {
+        EnsureRepository();
+        RunGitOrThrow($"branch \"{name}\" \"{commitSha}\"", _repositoryPath!);
     }
 
     public void Checkout(string branchName)
@@ -224,9 +238,31 @@ public class GitExeBackend : IGitBackend
                 RunGit($"config user.name \"{_userName}\"", _repositoryPath!);
                 RunGit($"config user.email \"{_userEmail}\"", _repositoryPath!);
             }
+
             var result = RunGit("pull", _repositoryPath!);
             if (result.ExitCode != 0)
+            {
+                // upstream 未設定の場合、ブランチ名を検出して origin <branch> で再試行
+                if (result.Error.Contains("not currently on a branch") ||
+                    result.Error.Contains("no tracking information") ||
+                    result.Error.Contains("specify which branch"))
+                {
+                    var branchResult = RunGit("rev-parse --abbrev-ref HEAD", _repositoryPath!);
+                    var branch = branchResult.Output.Trim();
+                    if (!string.IsNullOrEmpty(branch) && branch != "HEAD")
+                    {
+                        var retryResult = RunGit($"pull origin \"{branch}\"", _repositoryPath!);
+                        if (retryResult.ExitCode != 0)
+                            throw new InvalidOperationException(retryResult.Error);
+
+                        // upstream を設定
+                        RunGit($"branch --set-upstream-to=origin/{branch} \"{branch}\"", _repositoryPath!);
+
+                        return retryResult.Output.Contains("Already up to date") ? "UpToDate" : "Merged";
+                    }
+                }
                 throw new InvalidOperationException(result.Error);
+            }
             return result.Output.Contains("Already up to date") ? "UpToDate" : "Merged";
         });
     }
@@ -260,7 +296,7 @@ public class GitExeBackend : IGitBackend
         EnsureRepository();
         // パイプ文字がメッセージに入る可能性を考慮して区切りを特殊文字に
         var sep = "§§";
-        var result = RunGit($"log -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
+        var result = RunGit($"log --all -{maxCount} --format=%H{sep}%s{sep}%an{sep}%aI{sep}%P{sep}%D", _repositoryPath!);
         if (result.ExitCode != 0) return new List<CommitInfo>();
 
         var commits = new List<CommitInfo>();
@@ -282,7 +318,6 @@ public class GitExeBackend : IGitBackend
                     )
                     .SelectMany(r => r.Split(',', StringSplitOptions.RemoveEmptyEntries))
                     .Select(r => r.Trim())
-                    .Where(r => !r.StartsWith("origin/")) // リモートブランチはスキップ
                     .ToList();
 
             commits.Add(new CommitInfo(
@@ -379,6 +414,18 @@ public class GitExeBackend : IGitBackend
 
             // ローカルパスやUNCパスの場合、bareリポジトリを自動初期化
             EnsureRemoteBareIfLocal(trimmedUrl);
+
+            // safe.directory に登録（ネットワーク共有フォルダ等での所有権エラーを防止）
+            try
+            {
+                var safeDir = new SafeDirectoryService();
+                safeDir.AddSafeDirectory(trimmedUrl);
+                safeDir.AddSafeDirectory(trimmedPath);
+            }
+            catch (Exception ex)
+            {
+                GitLogService.Log($"[SafeDirectory] 自動登録の警告: {ex.Message}");
+            }
 
             // ローカルパスを git が正しく認識できる形式に変換
             // git は "C:\path" や "C:/path" を SSH URL (host:path) と誤解するため、

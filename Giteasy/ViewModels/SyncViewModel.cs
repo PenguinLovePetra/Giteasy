@@ -29,6 +29,9 @@ public partial class SyncViewModel : ObservableObject
 
     public void SetXamlRoot(XamlRoot root) => _xamlRoot = root;
 
+    /// <summary>同期操作完了時に発火。履歴の更新などに使用。</summary>
+    public event Action? SyncCompleted;
+
     public void Refresh()
     {
         if (_git.IsRepositorySet)
@@ -54,6 +57,7 @@ public partial class SyncViewModel : ObservableObject
         {
             await _git.FetchAsync();
             StatusMessage = "✓ フェッチが完了しました。";
+            SyncCompleted?.Invoke();
             await DialogHelper.ShowInfoAsync(_xamlRoot, "完了", "リモートの最新情報を取得しました。");
         }
         catch (Exception ex)
@@ -92,6 +96,7 @@ public partial class SyncViewModel : ObservableObject
             else
             {
                 StatusMessage = "✓ Pull が完了しました。";
+                SyncCompleted?.Invoke();
                 await DialogHelper.ShowInfoAsync(_xamlRoot, "Pull 完了", "リモートの変更をローカルに取り込みました。");
             }
             CurrentBranchName = _git.CurrentBranchName;
@@ -119,6 +124,7 @@ public partial class SyncViewModel : ObservableObject
         {
             await _git.PushAsync();
             StatusMessage = "✓ Push が完了しました。";
+            SyncCompleted?.Invoke();
             await DialogHelper.ShowInfoAsync(_xamlRoot, "Push 完了",
                 "ローカルの変更をリモートに送信しました。");
         }

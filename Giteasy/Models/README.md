@@ -1,23 +1,33 @@
 # Models
 
-## 📁 役割と機能 (Role & Functions)
+## 📁 役割と責務
 
-アプリケーションのドメインデータ構造や、ビジネスロジックで利用される純粋なエンティティ（状態を持たないデータキャリア）を定義するディレクトリです。
+アプリケーション全体で使用されるデータモデル（POCO / 値オブジェクト）を定義するディレクトリです。
+View、ViewModel、Service の各レイヤーから参照されます。
 
-- **主なデータ構造**:
-  - `BranchInfo`: Gitブランチ情報のカプセル化
-  - `CommitInfo`: Gitコミット履歴のカプセル化
-  - `ProjectInfo`: 登録済みプロジェクト（リポジトリ）のパスや最終閲覧情報のカプセル化
-- **UI 非依存**:
-  このディレクトリ内のクラスは、原則として `Microsoft.UI.Xaml` などのUIフレームワークに依存せず、C#の純粋なオブジェクトとして定義されます。
+## ファイル構成
 
-## ⚠️ 技術的負債と既知の課題 (Technical Debt & Known Issues)
+| ファイル         | 説明                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| `ProjectInfo.cs` | DB 登録済みプロジェクトの情報（ID, 名前, パス, リモートURL, 日時）                      |
+| `FileChange.cs`  | 変更ファイル情報。`ObservableObject` を継承し `IsSelected` の双方向バインディングを提供 |
+| `BranchInfo.cs`  | ブランチ名、正規名、HEAD/リモートフラグ。UIアイコン表示ロジックも内包                   |
+| `CommitInfo.cs`  | コミット情報（SHA, メッセージ, 作成者, 日時, 親SHA, Ref一覧）                           |
+| `GraphNode.cs`   | Git グラフ描画用ノード。レーン配置・エッジ・パススルーレーン情報を保持                  |
+| `GraphEdge.cs`   | グラフの接続線。始点レーン、終点レーン、カラーインデックスを保持                        |
+| `AppThemes.cs`   | テーマ定数（Light/Dark/Glass）と `ThemeOption` モデル。設定画面のドロップダウン用       |
 
-- **貧血ドメインモデル (Anemic Domain Model)**:
-  現状のModelsは単なるデータの入れ物（プロパティの集合体）になっており、振る舞い（ビジネスロジック）を持っていません。ロジックの多くは `Services` や `ViewModels` に流出しています。
-- **不変性 (Immutability) の欠如**:
-  一部のデータクラスに `set` プロパティが多用されており、どこからでも書き換え可能な状態になっています。理想的には `init` 専用プロパティや `record` 型にして堅牢性を高めるべきです。
+## 設計方針
 
-## 📝 更新ルール (Update Rules)
+- **イミュータブル指向**: `BranchInfo`, `CommitInfo` はコンストラクタで全プロパティを設定し、変更不可
+- **UI バインディング対応**: `FileChange` は `CommunityToolkit.Mvvm` の `ObservableObject` を継承し、チェックボックスとの双方向バインディングを実現
+- **LibGit2Sharp 依存**: `FileChange.cs` は `LibGit2Sharp.FileStatus` 列挙型を使用。これにより `GitExeBackend` でも同じ enum を共有できる
 
-**【重要】今後このディレクトリに新しいデータモデルを追加した際は、必ずこの README の「役割と機能」や「技術的負債」に追記・修正を行ってください。**
+## ⚠️ 技術的負債
+
+- `FileChange` が `LibGit2Sharp.FileStatus` に直接依存しているため、LibGit2Sharp を完全に除去する場合は独自の enum への置換が必要
+
+## 🔧 拡張ガイド
+
+- **新モデルの追加**: このディレクトリに新しい `.cs` ファイルを追加。名前空間は `Giteasy.Models`
+- **UI バインディングが必要な場合**: `ObservableObject` を継承し `[ObservableProperty]` 属性を使用
