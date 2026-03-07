@@ -62,19 +62,9 @@
                         <InfoBadge x:Name="StatusBadge" Visibility="Collapsed"/>
                     </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
-                <NavigationViewItem Content="ブランチ" Tag="Branch">
+                <NavigationViewItem Content="リポジトリ" Tag="Repository">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE8A5;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="同期" Tag="Sync">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE895;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="履歴" Tag="History">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE81C;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="ログ" Tag="Log">

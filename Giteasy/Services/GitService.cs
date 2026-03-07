@@ -338,6 +338,19 @@ public class GitService : IGitBackend
     }
 
     /// <summary>
+    /// 指定したコミットから新しいブランチを作成します。
+    /// </summary>
+    public void CreateBranchFromCommit(string branchName, string commitSha)
+    {
+        if (_externalBackend != null) { _externalBackend.CreateBranchFromCommit(branchName, commitSha); return; }
+        EnsureRepository();
+        using var repo = new Repository(_repositoryPath);
+        var commit = repo.Lookup<Commit>(commitSha)
+            ?? throw new InvalidOperationException($"コミット {commitSha} が見つかりません。");
+        repo.CreateBranch(branchName, commit);
+    }
+
+    /// <summary>
     /// 指定されたブランチにチェックアウトします。
     /// </summary>
     public void Checkout(string branchName)

@@ -29,6 +29,7 @@ public interface IGitBackend
     // ─── ブランチ ─────────────────────
     List<BranchInfo> GetBranches();
     void CreateBranch(string name);
+    void CreateBranchFromCommit(string name, string commitSha);
     void Checkout(string branchName);
     string Merge(string sourceBranch);
     void DeleteBranch(string branchName);

@@ -132,14 +132,8 @@ public sealed partial class MainWindow : Window
             case "Status":
                 ContentFrame.Content = new StatusPage(_statusVm);
                 break;
-            case "Branch":
-                ContentFrame.Content = new BranchPage(_branchVm);
-                break;
-            case "Sync":
-                ContentFrame.Content = new SyncPage(_syncVm);
-                break;
-            case "History":
-                ContentFrame.Content = new HistoryPage(_historyVm);
+            case "Repository":
+                ContentFrame.Content = new RepositoryPage(_syncVm, _branchVm, _historyVm, _gitService);
                 break;
             case "Settings":
                 ContentFrame.Content = new SettingsPage(_settingsVm);

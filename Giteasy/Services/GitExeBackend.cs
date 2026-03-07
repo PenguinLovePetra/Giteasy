@@ -192,6 +192,12 @@ public class GitExeBackend : IGitBackend
         RunGitOrThrow($"branch \"{name}\"", _repositoryPath!);
     }
 
+    public void CreateBranchFromCommit(string name, string commitSha)
+    {
+        EnsureRepository();
+        RunGitOrThrow($"branch \"{name}\" \"{commitSha}\"", _repositoryPath!);
+    }
+
     public void Checkout(string branchName)
     {
         EnsureRepository();
