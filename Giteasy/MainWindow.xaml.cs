@@ -21,6 +21,8 @@ public sealed partial class MainWindow : Window
     private readonly LogViewModel _logVm;
     private readonly AutoCloneService _autoCloneService;
     private readonly AutoCloneViewModel _autoCloneVm;
+    private readonly SafeDirectoryService _safeDirectoryService;
+    private readonly SafeDirectoryViewModel _safeDirectoryVm;
 
     public MainWindow()
     {
@@ -45,6 +47,8 @@ public sealed partial class MainWindow : Window
         _logVm = new LogViewModel();
         _autoCloneService = new AutoCloneService(_gitService, _db);
         _autoCloneVm = new AutoCloneViewModel(_autoCloneService, _db);
+        _safeDirectoryService = new SafeDirectoryService();
+        _safeDirectoryVm = new SafeDirectoryViewModel(_safeDirectoryService);
 
         // 設定変更 → ステータスバー更新
         _settingsVm.SettingsChanged += UpdateStatusBar;
@@ -118,6 +122,9 @@ public sealed partial class MainWindow : Window
                 break;
             case "AutoClone":
                 ContentFrame.Content = new AutoClonePage(_autoCloneVm);
+                break;
+            case "SafeDirectory":
+                ContentFrame.Content = new SafeDirectoryPage(_safeDirectoryVm);
                 break;
             case "Status":
                 ContentFrame.Content = new StatusPage(_statusVm);

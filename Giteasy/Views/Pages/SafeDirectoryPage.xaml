@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Giteasy.Views.Pages.SafeDirectoryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="Page_Loaded">
+
+    <Grid Padding="0" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ヘッダー -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Safe Directory" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock Text="Git の safe.directory に登録されたディレクトリの一覧です。ネットワーク共有フォルダ等を使用する場合、ここに登録が必要です。"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,4,0,0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="更新" Click="Refresh_Click" VerticalAlignment="Top"/>
+        </Grid>
+
+        <!-- 追加パネル -->
+        <Grid Grid.Row="1" CornerRadius="8"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+              BorderThickness="1" Padding="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="NewDirBox"
+                     PlaceholderText="ディレクトリパスを入力（例: //server/share/repos）"
+                     Text="{x:Bind _vm.NewDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Grid.Column="1" Margin="8,0,0,0"
+                    Click="BrowseDir_Click"
+                    ToolTipService.ToolTip="フォルダを選択">
+                <FontIcon Glyph="&#xE838;" FontSize="16"/>
+            </Button>
+            <Button Grid.Column="2" Content="追加" Margin="8,0,0,0"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Click="AddDir_Click"/>
+        </Grid>
+
+        <!-- 一覧 -->
+        <Grid Grid.Row="2" CornerRadius="8"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+              BorderThickness="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <ListView x:Name="DirListView" Grid.Row="0" Padding="4"
+                      SelectionMode="Single"
+                      SelectionChanged="DirList_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Grid Padding="8,6" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8B7;" FontSize="16"
+                                      VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{x:Bind}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- 空の場合 -->
+            <StackPanel x:Name="EmptyPanel" Grid.Row="0"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Spacing="8" Visibility="Collapsed">
+                <FontIcon Glyph="&#xE946;" FontSize="36"
+                          Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                          HorizontalAlignment="Center"/>
+                <TextBlock Text="safe directory は登録されていません"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- 操作ボタン -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Padding="12,8"
+                        Background="{ThemeResource LayerFillColorAltBrush}"
+                        CornerRadius="0,0,8,8">
+                <Button x:Name="RemoveBtn" Content="削除" Click="RemoveDir_Click"
+                        IsEnabled="False" Foreground="#F44336"/>
+                <TextBlock x:Name="StatusText"
+                           Text="{x:Bind _vm.StatusMessage, Mode=OneWay}"
+                           VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           FontSize="12" Margin="12,0,0,0"/>
+            </StackPanel>
+
+            <ProgressRing x:Name="LoadingRing" Grid.Row="0"
+                          IsActive="{x:Bind _vm.IsBusy, Mode=OneWay}"
+                          Width="40" Height="40"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+    </Grid>
+</Page>

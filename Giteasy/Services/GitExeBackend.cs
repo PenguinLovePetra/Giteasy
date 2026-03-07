@@ -388,6 +388,18 @@ public class GitExeBackend : IGitBackend
             // ローカルパスやUNCパスの場合、bareリポジトリを自動初期化
             EnsureRemoteBareIfLocal(trimmedUrl);
 
+            // safe.directory に登録（ネットワーク共有フォルダ等での所有権エラーを防止）
+            try
+            {
+                var safeDir = new SafeDirectoryService();
+                safeDir.AddSafeDirectory(trimmedUrl);
+                safeDir.AddSafeDirectory(trimmedPath);
+            }
+            catch (Exception ex)
+            {
+                GitLogService.Log($"[SafeDirectory] 自動登録の警告: {ex.Message}");
+            }
+
             // ローカルパスを git が正しく認識できる形式に変換
             // git は "C:\path" や "C:/path" を SSH URL (host:path) と誤解するため、
             // file:/// プロトコルを明示的に付与する

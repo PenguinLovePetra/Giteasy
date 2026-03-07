@@ -64,7 +64,6 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="{Binding Icon}" FontSize="16"
                                       VerticalAlignment="Center"/>
@@ -75,7 +74,8 @@
                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                            Visibility="{Binding IsSynced}"/>
                             </StackPanel>
-                            <Border Grid.Column="3" CornerRadius="4" Padding="8,2"
+                            <Border Grid.Column="2" CornerRadius="4" Padding="8,2"
+                                    VerticalAlignment="Center"
                                     Visibility="{Binding IsHead}"
                                     Background="{ThemeResource AccentFillColorDefaultBrush}">
                                 <TextBlock Text="現在" FontSize="12" Foreground="White"/>

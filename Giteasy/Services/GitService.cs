@@ -649,6 +649,18 @@ public class GitService : IGitBackend
 
         await Task.Run(() =>
         {
+            // safe.directory に登録（ネットワーク共有フォルダ等での所有権エラーを防止）
+            try
+            {
+                var safeDir = new SafeDirectoryService();
+                safeDir.AddSafeDirectory(remoteUrl);
+                safeDir.AddSafeDirectory(localPath);
+            }
+            catch (Exception ex)
+            {
+                GitLogService.Log($"[SafeDirectory] 自動登録の警告: {ex.Message}");
+            }
+
             var options = new CloneOptions();
             Repository.Clone(remoteUrl, localPath, options);
         });
